@@ -6,7 +6,7 @@
 
 Mix and match AI models and chat platforms in real-time conversations with humans in the loop.
 
-[Quick Start](#quick-start) · [Architecture](#architecture) · [AI Bridges](#ai-bridges) · [Chat Bridges](#chat-bridges) · [Build Your Own](#build-your-own-bridge)
+[Prerequisites](#prerequisites) · [Quick Start](#quick-start) · [Architecture](#architecture) · [AI Bridges](#ai-bridges) · [Chat Bridges](#chat-bridges) · [Build Your Own](#build-your-own-bridge)
 
 </div>
 
@@ -37,7 +37,74 @@ You (Telegram) ←→ ZeroRelay ←→ Claude (Anthropic)
 - **Private by default** — designed for Tailscale mesh, no public endpoints required
 - **Minimal** — pure Python, no framework, no database
 
+## Prerequisites
+
+### Everyone Needs
+
+| Requirement | Why | Check |
+|---|---|---|
+| **Linux server** | VPS, Raspberry Pi, home server — anything with systemd | Any Debian/Ubuntu/Fedora/Arch |
+| **Python 3.12+** | Runtime for relay and all bridges | `python3 --version` |
+| **pip** | Package installer | `pip --version` |
+| **git** | To clone the repo | `git --version` |
+
+### Recommended
+
+| Requirement | Why | Check |
+|---|---|---|
+| **Tailscale** | Private mesh networking — keeps relay off public internet | `tailscale status` |
+| **Root access** | For systemd service install (not needed for testing) | `whoami` |
+
+### Per AI Backend
+
+| Backend | What You Need | Cost | Setup Time |
+|---|---|---|---|
+| **Ollama** | [Ollama](https://ollama.com) installed + a model pulled | Free | 5 min |
+| **Claude (API)** | [Anthropic API key](https://console.anthropic.com/) | Pay-per-use (~$3/1M tokens) | 2 min |
+| **GPT (API)** | [OpenAI API key](https://platform.openai.com/api-keys) | Pay-per-use (~$2.50/1M tokens) | 2 min |
+| **Gemini (API)** | [Google API key](https://aistudio.google.com/apikey) | Free tier (15 RPM) | 2 min |
+| **Claude Code CLI** | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed + Anthropic account | Pro sub ($20/mo) | 10 min |
+| **OpenClaw** | Docker + [OpenClaw](https://github.com/openclaw) running + ChatGPT subscription | Sub ($20/mo) | 30 min |
+
+### Per Chat Interface
+
+| Interface | What You Need | Cost | Setup Time |
+|---|---|---|---|
+| **Terminal CLI** | Nothing extra | Free | 0 min |
+| **Telegram** | Bot token from [@BotFather](https://t.me/BotFather) + your chat ID from [@userinfobot](https://t.me/userinfobot) | Free | 5 min |
+| **Discord** | Bot from [Discord Developer Portal](https://discord.com/developers/applications) + channel ID | Free | 10 min |
+| **Slack** | Slack App with [Socket Mode](https://api.slack.com/apis/socket-mode) + workspace admin | Free | 15 min |
+
+### Cheapest Setup (Zero Cost)
+
+Ollama + Terminal CLI. No API keys, no accounts, runs entirely local:
+
+```bash
+# Install Ollama (if not already)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2
+
+# Run ZeroRelay
+python3 setup.py   # Select Ollama + CLI
+```
+
+### Most Common Setup
+
+One cloud API (Anthropic or OpenAI) + Telegram. Costs a few cents per conversation, works from your phone.
+
 ## Quick Start
+
+### Automated Setup (recommended)
+
+```bash
+git clone https://github.com/zeroshotstudio/ZeroRelay.git
+cd ZeroRelay && git checkout template
+sudo python3 setup.py
+```
+
+The setup script will walk you through choosing backends, configuring credentials, installing dependencies, and starting systemd services.
+
+### Manual Setup
 
 ```bash
 git clone https://github.com/zeroshotstudio/ZeroRelay.git && cd ZeroRelay && git checkout template
@@ -55,6 +122,12 @@ python3 bridges/chat/cli.py --relay ws://localhost:8765 --role jimmy
 ```
 
 Then type: `@claude what's the best way to handle rate limiting?`
+
+### Verify Install
+
+```bash
+python3 setup.py --check
+```
 
 ## Architecture
 
