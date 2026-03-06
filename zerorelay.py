@@ -27,7 +27,7 @@ log = logging.getLogger("zerorelay")
 
 clients: dict[str, websockets.WebSocketServerProtocol] = {}
 history: list[dict] = []
-VALID_ROLES = ("claude_ai", "vps_claude", "jimmy")
+VALID_ROLES = ("vps_claude", "zee", "jimmy")
 
 
 def make_msg(msg_type: str, **kwargs) -> str:
@@ -85,14 +85,22 @@ async def handler(websocket):
             except json.JSONDecodeError:
                 content = raw
 
+            meta = data.get("meta") if isinstance(data, dict) else None
             msg = {
                 "type": "message",
                 "from": role,
                 "content": content,
                 "timestamp": datetime.now().isoformat()
             }
-            history.append(msg)
-            log.info(f"[{role}] {content[:100]}")
+            if meta:
+                msg["meta"] = meta
+
+            # Only store non-streaming messages in history
+            if meta not in ("stream_chunk", "stream_start", "typing_indicator"):
+                history.append(msg)
+
+            if meta != "typing_indicator":
+                log.info(f"[{role}] {content[:100]}")
 
             await broadcast(role, msg)
 
@@ -110,7 +118,7 @@ async def handler(websocket):
 async def main():
     import argparse
     parser = argparse.ArgumentParser(description="ZeroRelay WebSocket server")
-    parser.add_argument("--host", default="100.64.0.0", help="Bind address (use your Tailscale IP)")
+    parser.add_argument("--host", default="100.127.106.41", help="Bind address (use your Tailscale IP)")
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
     args = parser.parse_args()
 

@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroBridge — OpenClaw relay bridge
+After=network-online.target docker.service zerorelay.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/zerorelay/zerobridge.py --relay ws://100.127.106.41:8765
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

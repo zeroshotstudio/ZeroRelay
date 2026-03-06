@@ -1,0 +1,15 @@
+[Unit]
+Description=ZeroRelay Telegram bridge (Jimmy)
+After=network-online.target zerorelay.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/zerorelay/telegram-bridge.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
