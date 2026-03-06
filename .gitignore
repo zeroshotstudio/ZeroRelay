@@ -1,16 +1,23 @@
-# Runtime files
+# Secrets
+*.env
+!config.example.env
+
+# Runtime
+__pycache__/
+*.pyc
 inbox
 outbox
 outbox.sent
+zee-outbox
+zee-outbox.sent
 claude-session-id
 
-# Secrets
-telegram.env
-*.env
-
-# Python
-__pycache__/
-*.pyc
+# Claude Code state
+.claude.json
+.claude/
+.cache/
+.npm/
 
 # OS
 .DS_Store
+Thumbs.db
