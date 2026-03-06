@@ -1,0 +1,12 @@
+# Core (required)
+websockets>=12.0
+
+# Chat bridges (install what you need)
+# httpx           # Telegram
+# discord.py      # Discord
+# slack-bolt      # Slack
+
+# AI bridges (install what you need)
+# anthropic       # Anthropic API
+# openai          # OpenAI API
+# google-genai    # Gemini API
