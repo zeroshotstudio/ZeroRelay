@@ -10,7 +10,7 @@ Usage:
   python3 setup.py --check   # Verify existing install
 """
 
-import os, sys, subprocess, shutil, uuid
+import os, sys, subprocess, shutil, uuid, platform
 from pathlib import Path
 
 BOLD = "\033[1m"; DIM = "\033[2m"; GREEN = "\033[32m"
@@ -38,6 +38,99 @@ def detect_tailscale():
         r = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=5)
         return r.stdout.strip().split("\n")[0] if r.returncode == 0 else None
     except: return None
+
+def get_python_version():
+    return sys.version_info
+
+def preflight():
+    """Step 0: Validate environment before proceeding."""
+    header("Preflight Check")
+    issues = 0; warnings = 0
+
+    # Python version
+    v = get_python_version()
+    if v >= (3, 12):
+        ok(f"Python {v.major}.{v.minor}.{v.micro}")
+    elif v >= (3, 10):
+        warn(f"Python {v.major}.{v.minor} — works but 3.12+ recommended")
+        warnings += 1
+    else:
+        err(f"Python {v.major}.{v.minor} — need 3.12+")
+        issues += 1
+
+    # pip
+    if check_cmd("pip") or check_cmd("pip3"):
+        ok("pip available")
+    else:
+        err("pip not found — install with: sudo apt install python3-pip")
+        issues += 1
+
+    # OS
+    if platform.system() == "Linux":
+        ok(f"Linux ({platform.release()[:20]})")
+    elif platform.system() == "Darwin":
+        warn("macOS — systemd not available, CLI/manual mode only")
+        warnings += 1
+    else:
+        warn(f"{platform.system()} — systemd not available")
+        warnings += 1
+
+    # systemd (for service install)
+    if check_cmd("systemctl"):
+        ok("systemd available")
+    else:
+        warn("systemd not found — services won't auto-start")
+        warnings += 1
+
+    # Root check
+    if IS_ROOT:
+        ok("Running as root — can install systemd services")
+    else:
+        warn("Not root — systemd install unavailable (run with sudo for full install)")
+        warnings += 1
+
+    # git
+    if check_cmd("git"):
+        ok("git available")
+    else:
+        warn("git not found — not required but useful")
+        warnings += 1
+
+    # Tailscale
+    ts = detect_tailscale()
+    if ts:
+        ok(f"Tailscale active ({ts})")
+    else:
+        dim("Tailscale not detected — relay will use public/localhost binding")
+
+    # Source files present
+    core = SCRIPT_DIR / "core" / "zerorelay.py"
+    if core.exists():
+        ok("ZeroRelay source files found")
+    else:
+        err(f"core/zerorelay.py not found in {SCRIPT_DIR}")
+        err("Are you running setup.py from the ZeroRelay directory?")
+        issues += 1
+
+    # Check for common AI tools
+    extras = []
+    if check_cmd("claude"): extras.append("Claude Code CLI")
+    if check_cmd("ollama"): extras.append("Ollama")
+    if check_cmd("docker"): extras.append("Docker")
+    if extras:
+        dim(f"Also detected: {', '.join(extras)}")
+
+    # Summary
+    if issues > 0:
+        p(f"\n  {RED}{BOLD}{issues} issue(s) must be fixed before continuing.{RESET}")
+        return False
+    elif warnings > 0:
+        p(f"\n  {YELLOW}{warnings} warning(s) — setup can continue but some features may be limited.{RESET}")
+        cont = input(f"  {BOLD}Continue anyway? [Y/n]{RESET} ").strip().lower()
+        return cont != "n"
+    else:
+        ok("All checks passed!")
+        return True
 
 def multi_select(title, options, defaults=None):
     selected = set(defaults or []); keys = list(options.keys())
@@ -94,11 +187,11 @@ AI_BACKENDS = {
     "ollama": {"label": "Ollama (local)", "bridge": "bridges/ai/ollama.py",
         "pip": [], "prompts": [("OLLAMA_MODEL", "Ollama model", "llama3.2")],
         "defaults": {"OLLAMA_HOST": "http://localhost:11434", "OLLAMA_TAGS": "@ollama,@local", "OLLAMA_ROLE": "ollama"},
-        "service": "zerorelay-ollama", "tags": "@ollama @local"},
+        "service": "zerorelay-ollama", "tags": "@ollama @local", "requires": "ollama"},
     "openclaw": {"label": "OpenClaw (GPT via Docker)", "bridge": "bridges/ai/openclaw.py",
         "pip": [], "prompts": [("OPENCLAW_TOKEN", "OpenClaw gateway token", ""), ("OPENCLAW_CONTAINER", "Docker container", "openclaw-openclaw-gateway-1")],
         "defaults": {"OPENCLAW_AGENT_ID": "main", "OPENCLAW_SESSION": "agent:main:zerorelay", "OPENCLAW_GATEWAY": "ws://127.0.0.1:18789", "OPENCLAW_TAGS": "@z,@zee", "OPENCLAW_ROLE": "zee"},
-        "service": "zerorelay-zee", "tags": "@z @zee"},
+        "service": "zerorelay-zee", "tags": "@z @zee", "requires": "docker"},
 }
 
 CHATS = {
@@ -147,6 +240,11 @@ def main():
     if "--check" in sys.argv:
         return check_install()
 
+    # Step 0: Preflight
+    if not preflight():
+        p("\n  Fix the issues above and re-run setup.", DIM)
+        return
+
     # Step 1: AI backends
     header("Step 1: Choose AI Backends")
     sel_ai = multi_select("Which AI models?", {k: v["label"] for k, v in AI_BACKENDS.items()}, ["anthropic_api"])
@@ -154,7 +252,11 @@ def main():
     for k in sel_ai:
         b = AI_BACKENDS[k]
         if b.get("requires") and not check_cmd(b["requires"]):
-            warn(f"{b['label']} needs '{b['requires']}' — not found")
+            warn(f"{b['label']} needs '{b['requires']}' — not found in PATH")
+            cont = input(f"  {DIM}Continue without it? [Y/n]{RESET} ").strip().lower()
+            if cont == "n":
+                sel_ai.remove(k)
+    if not sel_ai: err("No backends selected."); return
 
     # Step 2: Chat interface
     header("Step 2: Choose Chat Interface")
@@ -238,7 +340,7 @@ def main():
 
     # Step 7: systemd
     py = sys.executable; svcs = []
-    if IS_ROOT and sel_chat != "cli":
+    if IS_ROOT and sel_chat != "cli" and check_cmd("systemctl"):
         header("Step 7: systemd services")
         write_service("zerorelay", make_service("Broker", f"{py} {idir}/core/zerorelay.py --host {host} --port {port}", idir, "network.target"))
         svcs.append("zerorelay")
@@ -261,14 +363,21 @@ def main():
         for k in sel_ai: dim(f"python3 {idir}/{AI_BACKENDS[k]['bridge']} --relay {url} &")
         dim(f"python3 {idir}/{chat['bridge']} --relay {url} --role operator")
     else:
-        header("Step 7: Manual launch (not root)")
-        dim(f"python3 {idir}/core/zerorelay.py --host {host} &")
-        for k in sel_ai: dim(f"python3 {idir}/{AI_BACKENDS[k]['bridge']} --relay {url} &")
-        dim(f"python3 {idir}/{chat['bridge']} --relay {url}")
+        header("Step 7: Manual launch")
+        if not IS_ROOT: warn("Not root — can't install systemd services")
+        if not check_cmd("systemctl"): warn("systemd not available")
+        dim("Start manually:")
+        dim(f"  python3 {idir}/core/zerorelay.py --host {host} &")
+        for k in sel_ai: dim(f"  python3 {idir}/{AI_BACKENDS[k]['bridge']} --relay {url} &")
+        dim(f"  python3 {idir}/{chat['bridge']} --relay {url}")
 
     header("Setup Complete!")
     tags = " or ".join(f"{BOLD}{AI_BACKENDS[k]['tags']}{RESET}" for k in sel_ai)
-    p(f"\n  Chat with: {tags} + your message\n")
+    p(f"\n  Chat with: {tags} + your message")
+    if sel_chat != "cli":
+        p(f"  Check status: {BOLD}systemctl status zerorelay{RESET}")
+        p(f"  Verify install: {BOLD}python3 setup.py --check{RESET}")
+    p("")
 
 def check_install():
     header("ZeroRelay Install Check")
@@ -276,13 +385,44 @@ def check_install():
         path = INSTALL_DIR / d
         ok(f"{path}") if path.exists() else err(f"{path} missing")
     env = INSTALL_DIR / ".env"
-    ok(f".env (perms: {oct(env.stat().st_mode)[-3:]})") if env.exists() else err(".env missing")
-    for s in ["zerorelay"]:
-        r = subprocess.run(["systemctl", "is-active", s], capture_output=True, text=True)
-        st = r.stdout.strip()
-        ok(f"{s}: {st}") if st == "active" else warn(f"{s}: {st}")
+    if env.exists():
+        ok(f".env (perms: {oct(env.stat().st_mode)[-3:]})")
+        # Check key env vars
+        content = env.read_text()
+        for key in ["ZERORELAY_URL", "RELAY_TOKEN"]:
+            if key in content: ok(f"  {key} set")
+            else: warn(f"  {key} missing")
+    else:
+        err(".env missing")
+
+    # Check services
+    header("Services")
+    for pattern in ["zerorelay", "zerorelay-*"]:
+        import glob
+        for svc_file in sorted(glob.glob(f"/etc/systemd/system/{pattern}.service")):
+            svc = Path(svc_file).stem
+            r = subprocess.run(["systemctl", "is-active", svc], capture_output=True, text=True)
+            st = r.stdout.strip()
+            ok(f"{svc}: {st}") if st == "active" else warn(f"{svc}: {st}")
+
+    # Python deps
+    header("Dependencies")
+    for pkg in ["websockets"]:
+        try: __import__(pkg); ok(f"{pkg}")
+        except ImportError: err(f"{pkg} — not installed")
+    for pkg, mod in [("anthropic", "anthropic"), ("openai", "openai"), ("google-genai", "google.genai"),
+                     ("httpx", "httpx"), ("discord.py", "discord"), ("slack-bolt", "slack_bolt")]:
+        try: __import__(mod); dim(f"{pkg} installed")
+        except ImportError: pass
+
+    # Network
+    header("Network")
     ts = detect_tailscale()
     ok(f"Tailscale: {ts}") if ts else dim("Tailscale: not detected")
+
+    # Python
+    v = get_python_version()
+    ok(f"Python {v.major}.{v.minor}.{v.micro}") if v >= (3, 12) else warn(f"Python {v.major}.{v.minor}")
     p("")
 
 if __name__ == "__main__":
