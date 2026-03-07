@@ -13,6 +13,10 @@ CHANNEL_ID = int(os.environ.get("DISCORD_CHANNEL_ID", "0"))
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("DISCORD_ROLE", "operator")
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
+ALLOWED_USERS = set()
+_au = os.environ.get("DISCORD_ALLOWED_USERS", "")
+if _au:
+    ALLOWED_USERS = {int(uid.strip()) for uid in _au.split(",") if uid.strip()}
 
 SENDER_ICONS = {}
 s = os.environ.get("DISCORD_SENDER_ICONS", "")
@@ -42,6 +46,9 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.author == client.user or message.channel.id != CHANNEL_ID: return
+    if ALLOWED_USERS and message.author.id not in ALLOWED_USERS:
+        log.warning(f"Rejected message from unauthorized user_id={message.author.id}")
+        return
     text = message.content.strip()
     if not text: return
     log.info(f"Discord > Relay: {text[:80]}")
@@ -79,7 +86,9 @@ async def relay_listener():
                         label = SENDER_ICONS.get(sender, sender)
                         if relay_ch:
                             msg = f"**{label}**\n{content}"
-                            await relay_ch.send(msg[:2000])
+                            # Chunk messages exceeding Discord's 2000-char limit
+                            for i in range(0, len(msg), 2000):
+                                await relay_ch.send(msg[i:i+2000])
         except websockets.exceptions.ConnectionClosed: log.warning("Relay disconnected. Reconnecting...")
         except ConnectionRefusedError: log.warning("Relay unavailable. Retrying..."); await asyncio.sleep(5); continue
         except Exception as e: log.error(f"Relay error: {e}")

@@ -99,12 +99,17 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
                             "properties": {"text": {"type": "string"}}}}]
         }))
 
-        for ws in [ws_provider, ws_user]:
-            msg = await recv_msg(ws)
-            self.assertEqual(msg["type"], "mcp_tools_updated")
-            self.assertEqual(len(msg["available_tools"]), 1)
-            self.assertEqual(msg["available_tools"][0]["name"], "provider/echo")
-            self.assertEqual(msg["available_tools"][0]["owner"], "provider")
+        # Provider should NOT see its own tools (per-role exclusion)
+        provider_msg = await recv_msg(ws_provider)
+        self.assertEqual(provider_msg["type"], "mcp_tools_updated")
+        self.assertEqual(len(provider_msg["available_tools"]), 0)
+
+        # Other clients should see the registered tools
+        user_msg = await recv_msg(ws_user)
+        self.assertEqual(user_msg["type"], "mcp_tools_updated")
+        self.assertEqual(len(user_msg["available_tools"]), 1)
+        self.assertEqual(user_msg["available_tools"][0]["name"], "provider/echo")
+        self.assertEqual(user_msg["available_tools"][0]["owner"], "provider")
 
     async def test_connected_includes_available_tools(self):
         """New clients receive existing tools in the connected message."""
@@ -434,11 +439,16 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
     async def test_namespaced_names_in_discovery(self):
         """Both connected and mcp_tools_updated messages use namespaced names."""
         ws_provider, _ = await self._connect("provider")
+        ws_observer, _ = await self._connect("observer")
+        await drain_system_msgs(ws_provider)
+
         await ws_provider.send(json.dumps({
             "type": "mcp_register",
             "tools": [{"name": "search", "description": "Search"}]
         }))
-        update = await recv_msg(ws_provider)
+        # Provider won't see its own tools; check from observer's perspective
+        await recv_msg(ws_provider)  # drain provider's empty update
+        update = await recv_msg(ws_observer)
         self.assertEqual(update["available_tools"][0]["name"], "provider/search")
 
         # New client sees namespaced tools in connected message
