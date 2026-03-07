@@ -44,6 +44,8 @@ class OpenClawBridge(AIBridge):
         try:
             cmd = ["docker", "exec", CONTAINER, "openclaw", "gateway", "call", "agent",
                 "--params", params, "--url", GATEWAY_URL, "--expect-final", "--timeout", str(CLI_TIMEOUT * 1000)]
+            # NOTE: --token is visible in 'ps aux'. Prefer setting OPENCLAW_TOKEN as a
+            # container env var (via docker-compose) and using --token-env if supported.
             if GATEWAY_TOKEN: cmd.extend(["--token", GATEWAY_TOKEN])
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=CLI_TIMEOUT)
             if r.returncode != 0: return f"[OpenClaw error: {(r.stderr.strip() or r.stdout.strip() or 'Unknown')[:200]}]"

@@ -45,7 +45,7 @@ class ClaudeCodeBridge(AIBridge):
             self.transcript.clear()
             log.info(f"Session auto-reset (idle {idle:.0f}s). New: {self.session_id[:8]}...")
 
-    def _sync_generate(self, prompt, context):
+    def _sync_generate(self, prompt, context, _retry=0):
         self._check_idle_reset()
         self.last_activity = datetime.now()
 
@@ -69,12 +69,12 @@ class ClaudeCodeBridge(AIBridge):
 
             if r.returncode != 0 and not r.stdout.strip():
                 stderr = r.stderr.strip() or "Unknown error"
-                # Handle "already in use" by rotating session
-                if "already in use" in stderr:
-                    log.warning("Session locked, rotating...")
+                # Handle "already in use" by rotating session (max 3 retries)
+                if "already in use" in stderr and _retry < 3:
+                    log.warning(f"Session locked, rotating (attempt {_retry + 1}/3)...")
                     self.session_id = str(uuid.uuid4())
                     self.session_established = False
-                    return self._sync_generate(prompt, context)  # Retry with new session
+                    return self._sync_generate(prompt, context, _retry=_retry + 1)
                 return f"[Claude Code error \u2014 check server logs]"
 
             response = r.stdout.strip()
