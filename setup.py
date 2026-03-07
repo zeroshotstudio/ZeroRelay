@@ -84,7 +84,7 @@ def preflight():
 
     # Root check
     if IS_ROOT:
-        ok("Running as root — can install systemd services")
+        ok("Running as root — can install systemd services (services run as dedicated user)")
     else:
         warn("Not root — systemd install unavailable (run with sudo for full install)")
         warnings += 1
@@ -221,11 +221,18 @@ After={after}
 
 [Service]
 Type=simple
+User=zerorelay
+Group=zerorelay
 ExecStart={exec_cmd}
 WorkingDirectory={install_path}
 EnvironmentFile={install_path}/.env
 Restart=on-failure
 RestartSec=5
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths={install_path}
 
 [Install]
 WantedBy=multi-user.target
@@ -342,6 +349,22 @@ def main():
     py = sys.executable; svcs = []
     if IS_ROOT and sel_chat != "cli" and check_cmd("systemctl"):
         header("Step 7: systemd services")
+        # Create dedicated service user (idempotent)
+        r = subprocess.run(["id", "zerorelay"], capture_output=True)
+        if r.returncode != 0:
+            subprocess.run(["useradd", "-r", "-s", "/usr/sbin/nologin", "-d", str(idir), "zerorelay"], capture_output=True)
+            ok("Created zerorelay service user")
+        else:
+            dim("zerorelay user already exists")
+        # Add to docker group if any AI backend needs it
+        if any(AI_BACKENDS[k].get("requires") == "docker" for k in sel_ai):
+            subprocess.run(["usermod", "-aG", "docker", "zerorelay"], capture_output=True)
+            dim("Added zerorelay to docker group")
+        # Set ownership
+        subprocess.run(["chown", "-R", "zerorelay:zerorelay", str(idir)], capture_output=True)
+        subprocess.run(["chmod", "700", str(idir)], capture_output=True)
+        subprocess.run(["chmod", "600", str(env_path)], capture_output=True)
+        ok(f"Ownership → zerorelay:zerorelay")
         write_service("zerorelay", make_service("Broker", f"{py} {idir}/core/zerorelay.py --host {host} --port {port}", idir, "network.target"))
         svcs.append("zerorelay")
         for k in sel_ai:

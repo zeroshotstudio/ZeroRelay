@@ -90,7 +90,7 @@ graph LR
 | Requirement | Why | Check |
 |---|---|---|
 | **Tailscale** | Private mesh networking — keeps relay off public internet | `tailscale status` |
-| **Root access** | For systemd service install (not needed for testing) | `whoami` |
+| **sudo access** | For systemd service install only — services run as a dedicated `zerorelay` user | `sudo -v` |
 
 ### Per AI Backend
 
