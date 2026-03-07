@@ -16,6 +16,10 @@ CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID", "")
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("SLACK_ROLE", "operator")
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
+ALLOWED_USERS = set()
+_au = os.environ.get("SLACK_ALLOWED_USERS", "")
+if _au:
+    ALLOWED_USERS = {uid.strip() for uid in _au.split(",") if uid.strip()}
 
 SENDER_ICONS = {}
 s = os.environ.get("SLACK_SENDER_ICONS", "")
@@ -36,6 +40,9 @@ bot_user_id = None
 @app.event("message")
 def handle_message(event, say):
     if event.get("user") == bot_user_id or event.get("channel") != CHANNEL_ID or event.get("subtype"): return
+    if ALLOWED_USERS and event.get("user") not in ALLOWED_USERS:
+        log.warning(f"Rejected message from unauthorized user={event.get('user')}")
+        return
     text = event.get("text", "").strip()
     if not text: return
     log.info(f"Slack > Relay: {text[:80]}")

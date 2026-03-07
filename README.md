@@ -4,15 +4,15 @@
 
 <br/>
 
-**Drop your AI agents into a shared chat room. They talk directly to each other.**
+**Drop your AI agents into a shared chat room. They talk directly to each other — and call each other's tools.**
 
-No blackboards. No orchestrators. No polling. Just real-time WebSocket conversations between agents — with you in control.
+No blackboards. No orchestrators. No polling. Real-time WebSocket conversations between agents, with structured tool calling across models — and you in control.
 
 [![CI](https://github.com/zeroshotstudio/ZeroRelay/actions/workflows/ci.yml/badge.svg)](https://github.com/zeroshotstudio/ZeroRelay/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Quick Start](#quick-start) · [Architecture](#architecture) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Architecture](#architecture) · [MCP Tool Broker](#mcp-tool-broker) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -22,9 +22,9 @@ No blackboards. No orchestrators. No polling. Just real-time WebSocket conversat
 
 Most multi-agent setups rely on **shared files**, **blackboards**, or **orchestrators** to pass messages between AI agents. That works, but it's slow, brittle, and indirect — agents are writing notes for each other instead of actually talking.
 
-ZeroRelay takes a different approach: **put your agents in a group chat.**
+ZeroRelay takes a different approach: **put your agents in a group chat — and give them each other's tools.**
 
-Every agent connects to a shared WebSocket relay. They see each other's messages in real-time. They @-mention each other to collaborate, delegate, or ask follow-up questions — the same way humans do in Slack or Discord. You sit in the chat too, steering the conversation.
+Every agent connects to a shared WebSocket relay. They see each other's messages in real-time. They @-mention each other to collaborate, delegate, or ask follow-up questions — the same way humans do in Slack or Discord. And with the **MCP Tool Broker**, they can call each other's tools directly via structured JSON — no natural language parsing needed.
 
 ```
 You: @claude write a Python CLI for the new API
@@ -33,7 +33,13 @@ GPT: Found 3 issues. Here's a patch. @claude apply this.
 Claude: Applied. Tests pass. Ready for review.
 ```
 
-This is **direct agent-to-agent communication** — no middleware, no file drops, no polling loops. Just conversation.
+Meanwhile, behind the scenes:
+```
+Claude calls gpt/lint_code {"file": "cli.py"}     → GPT returns structured results
+GPT calls claude/run_tests {"suite": "cli"}        → Claude returns pass/fail JSON
+```
+
+This is **direct agent-to-agent communication** — conversation *and* tool calling, no middleware.
 
 ### What makes this different
 
@@ -44,11 +50,14 @@ This is **direct agent-to-agent communication** — no middleware, no file drops
 | Polling for updates (seconds/minutes) | Real-time WebSocket (milliseconds) |
 | Rigid turn-taking pipelines | Natural conversation flow |
 | Single model vendor | Mix Claude + GPT + Gemini + Ollama freely |
-| Complex framework required | ~200 lines of Python, zero dependencies beyond `websockets` |
+| Tool calls stay inside one model | **Cross-model tool calling** via MCP Tool Broker |
+| Complex framework required | ~300 lines of Python, zero dependencies beyond `websockets` |
 
 ### Key Features
 
 - **Direct agent-to-agent messaging** — agents @-mention and respond to each other in real-time
+- **MCP Tool Broker** — agents register tools and call each other's tools via structured JSON
+- **Tool namespacing** — tools are scoped as `owner/tool_name`, preventing collisions across agents
 - **Model-agnostic** — Claude, GPT, Gemini, Ollama, OpenClaw, or any API in the same chat
 - **Platform-agnostic** — Telegram, Discord, Slack, or terminal as your window into the conversation
 - **Human-in-the-loop** — you're in the chat too, steering and intervening when needed
@@ -65,6 +74,8 @@ graph LR
     R <-->|ws| L["Llama"]
     C -.->|"@gpt review this"| G
     G -.->|"@claude looks good"| C
+    C -. "call gpt/lint_code" .-> G
+    G -. "call claude/run_tests" .-> C
 
     style R fill:#6366f1,stroke:#4f46e5,color:#fff
     style You fill:#22d3ee,stroke:#06b6d4,color:#000
@@ -222,7 +233,7 @@ graph LR
     end
 
     subgraph Broker
-        R["ZeroRelay<br/>WebSocket :8765"]
+        R["ZeroRelay<br/>WebSocket :8765<br/>+ MCP Tool Broker"]
     end
 
     subgraph AI Bridges
@@ -252,32 +263,152 @@ graph LR
     style CLI fill:#22d3ee,stroke:#06b6d4,color:#000
 ```
 
-Every bridge connects as a named **role**. Messages broadcast to all others. AI bridges only respond when @-mentioned.
+Every bridge connects as a named **role**. Chat messages broadcast to all others. AI bridges only respond when @-mentioned. MCP tool calls route directly between specific agents.
 
 ### Message Flow
 
-Agents communicate directly through the relay — including with each other:
+Agents communicate through two channels: **chat messages** (broadcast) and **MCP tool calls** (point-to-point):
 
 ```mermaid
 sequenceDiagram
     participant Op as You (Telegram)
-    participant R as ZeroRelay Broker
+    participant R as ZeroRelay
     participant C as Claude
     participant G as GPT
 
     Op->>R: @claude build a REST API
     R->>C: broadcast (Claude is tagged)
     R->>G: broadcast (GPT not tagged, ignores)
+
+    Note over C,G: Chat: natural language collaboration
     C->>R: Here's the API. @gpt review for security issues?
     R->>G: broadcast (GPT is tagged)
     R->>Op: broadcast (you see everything)
-    G->>R: Found 2 issues. @claude fix the auth header.
-    R->>C: broadcast (Claude is tagged)
-    R->>Op: broadcast (you see everything)
-    C->>R: Fixed. Ready for review.
+
+    Note over C,G: MCP: structured tool calling
+    G->>R: mcp_tool_call: claude/run_tests {"suite": "api"}
+    R->>C: forward call (plain name: run_tests)
+    C->>R: mcp_tool_result: {"passed": 14, "failed": 1}
+    R->>G: forward result
+
+    G->>R: Found 1 failing test. @claude fix the auth header.
+    R->>C: broadcast
+    R->>Op: broadcast
+    C->>R: Fixed. All tests pass.
     R->>Op: broadcast
     R->>G: broadcast
 ```
+
+## MCP Tool Broker
+
+The MCP Tool Broker transforms ZeroRelay from a messaging hub into a **distributed tool-calling platform**. Agents register tools they expose, discover tools other agents offer, and invoke them directly via structured JSON — bypassing conversation entirely when precision matters.
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    participant DB as db_agent
+    participant R as ZeroRelay
+    participant W as web_agent
+
+    Note over DB: On connect: register tools
+    DB->>R: mcp_register: [{"name": "run_sql", ...}]
+    R->>R: Store as db_agent/run_sql
+    R->>DB: mcp_tools_updated (all tools)
+    R->>W: mcp_tools_updated (all tools)
+
+    Note over W: Discover and call tools
+    W->>R: mcp_tool_call: db_agent/run_sql {"query": "SELECT..."}
+    R->>R: Resolve owner, validate, strip namespace
+    R->>DB: mcp_tool_call: run_sql {"query": "SELECT..."}
+    DB->>R: mcp_tool_result: {"rows": [...]}
+    R->>W: mcp_tool_result: {"rows": [...]}
+
+    Note over DB: On disconnect: auto-cleanup
+    DB--xR: disconnect
+    R->>R: Unregister db_agent/* tools
+    R->>W: mcp_tools_updated (empty)
+```
+
+### Tool Namespacing
+
+Tools are automatically namespaced as `{owner}/{tool_name}` to prevent collisions. Two agents can register tools with the same plain name without conflict:
+
+| Agent registers | Stored as | Called as |
+|---|---|---|
+| `db_agent` registers `search` | `db_agent/search` | Caller uses `db_agent/search` |
+| `web_agent` registers `search` | `web_agent/search` | Caller uses `web_agent/search` |
+
+The relay handles translation transparently:
+- **Callers** use the namespaced name: `db_agent/search`
+- **Owners** receive the plain name: `search` (they don't need to know about namespacing)
+
+### MCP Message Types
+
+Four message types flow alongside existing chat messages:
+
+| Type | Direction | Purpose |
+|------|-----------|---------|
+| `mcp_register` | bridge → relay | Advertise tools on connect |
+| `mcp_tool_call` | caller → relay → owner | Invoke a remote tool |
+| `mcp_tool_result` | owner → relay → caller | Return tool execution result |
+| `mcp_tools_updated` | relay → all | Broadcast when available tools change |
+
+MCP messages are **fully backward compatible** — existing bridges ignore them and work unchanged.
+
+### Building a Bridge with MCP Tools
+
+Subclass `AIBridge` and override `on_tool_call()` to expose tools. Use `call_remote_tool()` to invoke other agents' tools:
+
+```python
+class DBBridge(AIBridge):
+    def __init__(self, relay_url):
+        super().__init__(
+            relay_url=relay_url, role="db_agent",
+            tags=["@db"], display_name="DB Agent",
+            system_prompt="You are a database agent.",
+        )
+
+    async def on_connect(self, peers):
+        # Register tools this agent exposes
+        await self.register_tools([
+            {"name": "run_sql", "description": "Execute a SQL query",
+             "input_schema": {"type": "object",
+                "properties": {"query": {"type": "string"}}}},
+        ])
+
+    async def on_tool_call(self, call_id, caller, tool_name, arguments):
+        # Handle incoming tool calls (receives plain name, not namespaced)
+        if tool_name == "run_sql":
+            rows = execute_query(arguments["query"])
+            await self._send_tool_result(call_id, result={"rows": rows})
+        else:
+            await self._send_tool_result(call_id, error=f"Unknown tool: {tool_name}")
+
+    def _sync_generate(self, prompt, context):
+        # Can also call remote tools during generation
+        # result = await self.call_remote_tool("web_agent/fetch", {"url": "..."})
+        return my_llm.generate(prompt)
+```
+
+### Tool Discovery
+
+When a new agent connects, it receives a list of all available tools in the `connected` message. When tools change (registration or disconnect), all agents receive an `mcp_tools_updated` broadcast. The tool list is stored in `self._available_remote_tools` on every bridge.
+
+### Error Handling
+
+The broker handles all failure scenarios gracefully:
+
+| Scenario | Behavior |
+|----------|----------|
+| Tool not in registry | Immediate error result to caller |
+| Owner not connected | Immediate error result to caller |
+| Owner disconnects mid-call | Error result for all pending calls |
+| Call timeout (30s default) | Error result after `ZERORELAY_MCP_TIMEOUT` seconds |
+| Bridge-side timeout | `call_remote_tool()` returns `{"error": "Tool call timed out"}` |
+| Self-call (agent calls own tool) | Immediate error: "Cannot call your own tool" |
+| Result from wrong sender | Dropped silently, pending call preserved for real owner |
+| MCP rate limit exceeded | Error result for tool calls, silent drop for register/result |
 
 ## AI Bridges
 
@@ -311,6 +442,8 @@ OPENCLAW_OUTBOX=/opt/zerorelay/zee-outbox python3 bridges/ai/openclaw.py --relay
 ```
 
 The outbox is powerful: your OpenClaw agent can write to the outbox file from inside its container (via a volume mount), and the bridge picks it up and sends it to the relay. This means your agent can start conversations, send alerts, or report on cron jobs without waiting for someone to @-mention it.
+
+All bridges inherit MCP support from `BaseBridge`. Override `on_tool_call()` and call `register_tools()` in `on_connect()` to expose tools.
 
 ## Chat Bridges
 
@@ -347,6 +480,8 @@ flowchart TD
 2. **Self-skip** — bridges discard their own messages
 3. **Meta filtering** — typing indicators and stream chunks are invisible to AI
 
+MCP tool calls are **not** subject to loop prevention — they are point-to-point, tracked by `call_id`, and protected by self-call prevention instead.
+
 ## Build Your Own Bridge
 
 Subclass `AIBridge` and implement `_sync_generate()`:
@@ -371,7 +506,7 @@ class MyBridge(AIBridge):
 asyncio.run(MyBridge("ws://localhost:8765").run())
 ```
 
-The base class handles: WebSocket connection, reconnection, @-mention routing, transcript tracking, typing indicators, and loop prevention.
+The base class handles: WebSocket connection, reconnection with exponential backoff, @-mention routing, transcript tracking, typing indicators, loop prevention, MCP tool registration, tool call dispatch, and pending future management.
 
 ## Deployment
 
@@ -411,9 +546,14 @@ ZeroRelay is designed to run on private infrastructure. Multiple layers protect 
 |-------|-----------|---------------|
 | **Network** | Tailscale mesh — relay never exposed to public internet | `--host $(tailscale ip -4)` |
 | **Authentication** | Token-based — all bridges must present matching token | `RELAY_TOKEN` env var |
-| **Rate limiting** | Per-role message throttling (20 msgs / 60s default) | `ZERORELAY_RATE_MAX`, `ZERORELAY_RATE_WINDOW` |
+| **Chat rate limiting** | Per-role message throttling (20 msgs / 60s default) | `ZERORELAY_RATE_MAX`, `ZERORELAY_RATE_WINDOW` |
+| **MCP rate limiting** | Separate per-role MCP throttling (60 msgs / 60s default) | `ZERORELAY_MCP_RATE_MAX`, `ZERORELAY_MCP_RATE_WINDOW` |
 | **Message size** | WebSocket frame limit (64KB) | Hardcoded in relay |
 | **Role locking** | One connection per role — prevents impersonation | Enforced by relay |
+| **MCP sender verification** | Tool results only accepted from the actual tool owner | Enforced by relay |
+| **MCP self-call prevention** | Agents cannot call their own tools | Enforced by relay |
+| **MCP input validation** | `call_id`, `tool_name`, `arguments` type-checked before processing | Enforced by relay |
+| **MCP call timeout** | Pending tool calls expire after configurable timeout (30s default) | `ZERORELAY_MCP_TIMEOUT` |
 | **Sender verification** | Telegram bridge verifies user ID | `TELEGRAM_USER_ID` |
 | **Operator commands** | Only the operator role can issue `[RESET]` | `ZERORELAY_OPERATOR` |
 | **Service isolation** | systemd hardening (ProtectSystem, PrivateTmp, NoNewPrivileges) | See `services/README.md` |
@@ -429,6 +569,9 @@ All configuration is via environment variables. See [`config.example.env`](confi
 | `RELAY_TOKEN` | All | Recommended | Shared secret for relay authentication |
 | `ZERORELAY_ROLES` | Relay | No | Comma-separated allowed roles (empty = any) |
 | `ZERORELAY_OPERATOR` | Bridges | No | Role that can issue `[RESET]` (default: `operator`) |
+| `ZERORELAY_MCP_TIMEOUT` | Relay | No | Seconds before pending MCP tool calls expire (default: `30`) |
+| `ZERORELAY_MCP_RATE_MAX` | Relay | No | Max MCP messages per window per role (default: `60`) |
+| `ZERORELAY_MCP_RATE_WINDOW` | Relay | No | MCP rate limit window in seconds (default: `60`) |
 | `ANTHROPIC_API_KEY` | Anthropic bridge | Yes | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI bridge | Yes | OpenAI API key |
 | `GOOGLE_API_KEY` | Gemini bridge | Yes | Google AI API key |
@@ -521,6 +664,28 @@ ExecStart=/opt/zerorelay/venv/bin/python3 /opt/zerorelay/core/zerorelay.py --hos
 </details>
 
 <details>
+<summary><strong>MCP tool call returns "not available"</strong></summary>
+
+The tool owner may have disconnected, or you're using the wrong name format. Tool calls require the **namespaced name** (`owner/tool_name`):
+
+```python
+# Wrong — plain name won't resolve
+await self.call_remote_tool("run_sql", {"query": "SELECT 1"})
+
+# Correct — use namespaced name
+await self.call_remote_tool("db_agent/run_sql", {"query": "SELECT 1"})
+```
+
+Check `self._available_remote_tools` to see what's currently registered.
+</details>
+
+<details>
+<summary><strong>MCP tool call returns "Cannot call your own tool"</strong></summary>
+
+An agent cannot invoke its own tools through the relay. This is a safety feature to prevent self-referential loops. If you need to call your own logic, call the function directly instead of routing through the relay.
+</details>
+
+<details>
 <summary><strong>Claude Code bridge: "session already in use"</strong></summary>
 
 The Claude CLI session is locked by another process. The bridge handles this automatically by rotating to a new session, but if it persists:
@@ -545,7 +710,7 @@ systemctl restart zerorelay-claude
 <details>
 <summary><strong>Bridges reconnecting in a loop</strong></summary>
 
-Normal behavior when the relay isn't reachable. Bridges use exponential backoff (3s, 6s, 12s, ... up to 60s). Once the relay starts, they connect automatically.
+Normal behavior when the relay isn't reachable. Bridges use exponential backoff (3s, 6s, 12s, ... up to 60s). Once the relay starts, they connect automatically. Pending MCP tool calls are automatically cancelled on disconnect so callers don't hang.
 </details>
 
 <details>
@@ -564,7 +729,7 @@ curl http://localhost:11434/api/chat -d '{"model":"llama3.2","messages":[{"role"
 <details>
 <summary><strong>How do I add a new AI model?</strong></summary>
 
-See [Build Your Own Bridge](#build-your-own-bridge). Implement `_sync_generate()` — the base class handles everything else.
+See [Build Your Own Bridge](#build-your-own-bridge). Implement `_sync_generate()` — the base class handles everything else, including MCP tool support.
 </details>
 
 ## Contributing

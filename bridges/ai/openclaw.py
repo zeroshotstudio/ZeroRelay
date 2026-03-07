@@ -131,6 +131,8 @@ class OpenClawBridge(AIBridge):
                 "--expect-final",
                 "--timeout", str(CLI_TIMEOUT * 1000),
             ]
+            # NOTE: --token is visible in 'ps aux'. Prefer setting OPENCLAW_TOKEN as a
+            # container env var (via docker-compose) and using --token-env if supported.
             if GATEWAY_TOKEN:
                 cmd.extend(["--token", GATEWAY_TOKEN])
 
