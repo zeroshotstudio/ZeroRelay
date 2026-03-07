@@ -39,24 +39,6 @@ MODE = os.environ.get("OPENCLAW_MODE", "cli")  # "cli" or "websocket"
 OUTBOX_PATH = os.environ.get("OPENCLAW_OUTBOX", "")  # empty = disabled
 SESSION_IDLE_RESET_SEC = int(os.environ.get("SESSION_IDLE_RESET_SEC", "1800"))
 
-DEFAULT_SYSTEM_PROMPT = """You are an AI agent in a multi-party relay chat called ZeroRelay.
-
-How the relay works:
-- Multiple participants (humans and AIs) share a single chat room.
-- You only receive messages when someone tags you with your @-mention.
-- Your reply is broadcast to everyone in the room.
-- To direct a message to another participant, include their @tag.
-- IMPORTANT: You must include the @tag in EVERY message directed at someone, not just the first.
-- The transcript below shows recent conversation for context.
-
-How to talk to others:
-- Your reply goes to everyone automatically.
-- To reach a specific participant, include their @tag in your message.
-- If asked to message someone, actually write the message with their @tag.
-  Do not say "Done, I messaged them" without writing the real message.
-
-Response style: Short and conversational. No headers or preamble unless asked."""
-
 
 def extract_json(text: str) -> str:
     """Extract the first complete JSON object from text that may contain banners/warnings."""
@@ -82,7 +64,7 @@ class OpenClawBridge(AIBridge):
             role=os.environ.get("OPENCLAW_ROLE", "zee"),
             tags=tags,
             display_name="Zee (OpenClaw)",
-            system_prompt=os.environ.get("OPENCLAW_SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT),
+            system_prompt=os.environ.get("OPENCLAW_SYSTEM_PROMPT") or None,
             **kw,
         )
         self.session_counter = 0

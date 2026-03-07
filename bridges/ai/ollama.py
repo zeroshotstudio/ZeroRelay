@@ -15,8 +15,7 @@ class OllamaBridge(AIBridge):
         tags = [t.strip() for t in os.environ.get("OLLAMA_TAGS", "@ollama,@local").split(",")]
         super().__init__(relay_url=relay_url, role=os.environ.get("OLLAMA_ROLE", "ollama"),
             tags=tags, display_name=f"Ollama ({MODEL})",
-            system_prompt=os.environ.get("OLLAMA_SYSTEM_PROMPT",
-                "You are a local AI in a multi-party relay chat. Keep responses short and conversational."), **kw)
+            system_prompt=os.environ.get("OLLAMA_SYSTEM_PROMPT") or None, **kw)
         self.history = []
 
     def _sync_generate(self, prompt, context):

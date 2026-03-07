@@ -17,8 +17,6 @@ MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 CLI_TIMEOUT = int(os.environ.get("CLAUDE_TIMEOUT", "120"))
 ADD_DIR = os.environ.get("CLAUDE_ADD_DIR", "")  # e.g. "/" for full filesystem access
 SESSION_IDLE_RESET_SEC = int(os.environ.get("CLAUDE_SESSION_IDLE_SEC", "1800"))  # 30 min
-DEFAULT_PROMPT = """You are Claude in a multi-party relay chat called ZeroRelay.
-Keep responses short and conversational. No headers or formatting unless asked."""
 
 
 class ClaudeCodeBridge(AIBridge):
@@ -29,7 +27,7 @@ class ClaudeCodeBridge(AIBridge):
             role=os.environ.get("CLAUDE_ROLE", "claude"),
             tags=tags,
             display_name="Claude (Code CLI)",
-            system_prompt=os.environ.get("CLAUDE_SYSTEM_PROMPT", DEFAULT_PROMPT),
+            system_prompt=os.environ.get("CLAUDE_SYSTEM_PROMPT") or None,
             **kw
         )
         self.session_id = str(uuid.uuid4())

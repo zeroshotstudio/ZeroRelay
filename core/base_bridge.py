@@ -23,6 +23,44 @@ import websockets
 log = logging.getLogger("bridge")
 
 
+# Shared system prompt template for all AI bridges.
+# Bridges inject their own {name} and {extra} via RELAY_PROMPT_TEMPLATE.format(...).
+RELAY_PROMPT_TEMPLATE = """\
+You are {name} in a multi-party relay chat called ZeroRelay.
+
+Who you are:
+- Your role on the relay is "{role}". Others see your messages labelled with this role.
+- When someone @-mentions you (e.g. {example_tags}), the relay routes their message to you.
+
+How the relay works:
+- Multiple participants (humans and AIs) share a single chat room.
+- You only receive messages when someone tags you with your @-mention.
+- Your reply is broadcast to everyone in the room.
+- The transcript below shows recent conversation for context.
+
+How to talk to others:
+- Your reply goes to everyone automatically.
+- To direct a message to a specific participant, include their @tag in your message.
+- IMPORTANT: Include the @tag in EVERY message directed at someone, not just the first.
+- If asked to message someone, actually write the message with their @tag.
+  Do not say "Done, I messaged them" without writing the real message.
+
+Response style:
+- Keep responses short and conversational.
+- No headers, preamble, or markdown formatting unless asked.
+{extra}"""
+
+
+def build_relay_prompt(name: str, role: str, tags: list[str] | None = None,
+                       extra: str = "") -> str:
+    """Build a relay-aware system prompt from the shared template."""
+    example_tags = ", ".join(tags[:3]) if tags else f"@{role}"
+    return RELAY_PROMPT_TEMPLATE.format(
+        name=name, role=role, example_tags=example_tags,
+        extra=("\n" + extra.rstrip()) if extra else "",
+    ).rstrip()
+
+
 class BaseBridge(ABC):
     def __init__(self, relay_url: str, role: str, tags: list[str] | None = None,
                  display_name: str | None = None, max_transcript: int = 30):
@@ -196,9 +234,31 @@ class BaseBridge(ABC):
 class AIBridge(BaseBridge):
     """Base for AI bridges. Subclass and implement _sync_generate()."""
 
-    def __init__(self, system_prompt: str = "", **kwargs):
+    def __init__(self, system_prompt: str | None = None, **kwargs):
         super().__init__(**kwargs)
-        self.system_prompt = system_prompt
+        self.system_prompt = system_prompt or build_relay_prompt(
+            name=self.display_name, role=self.role, tags=self.tags)
+
+    async def on_connect(self, peers: list[str]):
+        await super().on_connect(peers)
+        if self._available_remote_tools:
+            names = [t.get("name", "?") for t in self._available_remote_tools]
+            log.info(f"[MCP] {len(names)} remote tools available: {names}")
+
+    async def on_tools_updated(self, tools: list[dict]):
+        await super().on_tools_updated(tools)
+        names = [t.get("name", "?") for t in tools]
+        log.info(f"[MCP] Tools updated — {len(names)} available: {names}")
+
+    def format_tools(self) -> str:
+        """Format available remote tools for inclusion in prompt context."""
+        if not self._available_remote_tools:
+            return ""
+        lines = ["Available tools (call via relay):"]
+        for t in self._available_remote_tools:
+            desc = t.get("description", "")
+            lines.append(f"  - {t.get('name', '?')}: {desc}" if desc else f"  - {t.get('name', '?')}")
+        return "\n".join(lines)
 
     async def on_message(self, sender: str, content: str, data: dict):
         # Only accept RESET from operator

@@ -9,12 +9,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 log = logging.getLogger("discord-bridge")
 
 BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
-CHANNEL_ID = int(os.environ.get("DISCORD_CHANNEL_ID", "0"))
+CHANNEL_ID = int(os.environ.get("DISCORD_CHANNEL_ID") or "0")
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("DISCORD_ROLE", "operator")
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 ALLOWED_USERS = set()
-_au = os.environ.get("DISCORD_ALLOWED_USERS", "")
+_au = os.environ.get("DISCORD_ALLOWED_USERS") or ""
 if _au:
     ALLOWED_USERS = {int(uid.strip()) for uid in _au.split(",") if uid.strip()}
 
@@ -95,5 +95,8 @@ async def relay_listener():
         ws_conn = None; await asyncio.sleep(3)
 
 if __name__ == "__main__":
-    if not BOT_TOKEN or not CHANNEL_ID: log.error("DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID required"); sys.exit(1)
+    if not BOT_TOKEN:
+        log.error("DISCORD_BOT_TOKEN not set. Set it in .env or environment."); sys.exit(1)
+    if not CHANNEL_ID:
+        log.error("DISCORD_CHANNEL_ID not set or is 0. Set it to a valid numeric channel ID in .env."); sys.exit(1)
     client.run(BOT_TOKEN)

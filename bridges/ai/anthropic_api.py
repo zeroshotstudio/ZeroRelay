@@ -14,8 +14,7 @@ class AnthropicBridge(AIBridge):
         tags = [t.strip() for t in os.environ.get("ANTHROPIC_TAGS", "@claude,@c").split(",")]
         super().__init__(relay_url=relay_url, role=os.environ.get("ANTHROPIC_ROLE", "claude"),
             tags=tags, display_name=f"Claude ({MODEL})",
-            system_prompt=os.environ.get("ANTHROPIC_SYSTEM_PROMPT",
-                "You are Claude in a multi-party relay chat. Keep responses short and conversational."), **kw)
+            system_prompt=os.environ.get("ANTHROPIC_SYSTEM_PROMPT") or None, **kw)
         import anthropic; self.client = anthropic.Anthropic(); self.history = []
 
     def _sync_generate(self, prompt, context):
@@ -33,4 +32,6 @@ class AnthropicBridge(AIBridge):
 
 if __name__ == "__main__":
     import argparse; p = argparse.ArgumentParser(); p.add_argument("--relay", default="ws://localhost:8765")
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        logging.getLogger("anthropic-bridge").error("ANTHROPIC_API_KEY not set. Set it in .env or environment."); sys.exit(1)
     asyncio.run(AnthropicBridge(relay_url=p.parse_args().relay).run())

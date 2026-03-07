@@ -28,8 +28,8 @@ if os.path.exists(ENV_FILE):
                 os.environ.setdefault(key.strip(), val.strip())
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-CHAT_ID = int(os.environ.get("TELEGRAM_CHAT_ID", "0"))
-USER_ID = int(os.environ.get("TELEGRAM_USER_ID", "0"))  # H4: sender verification
+CHAT_ID = int(os.environ.get("TELEGRAM_CHAT_ID") or "0")
+USER_ID = int(os.environ.get("TELEGRAM_USER_ID") or "0")  # H4: sender verification
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("TELEGRAM_ROLE", "operator")
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")

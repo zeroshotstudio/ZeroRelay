@@ -15,8 +15,7 @@ class OpenAIBridge(AIBridge):
         tags = [t.strip() for t in os.environ.get("OPENAI_TAGS", "@gpt,@g").split(",")]
         super().__init__(relay_url=relay_url, role=os.environ.get("OPENAI_ROLE", "gpt"),
             tags=tags, display_name=f"GPT ({MODEL})",
-            system_prompt=os.environ.get("OPENAI_SYSTEM_PROMPT",
-                "You are an AI assistant in a multi-party relay chat. Keep responses short and conversational."), **kw)
+            system_prompt=os.environ.get("OPENAI_SYSTEM_PROMPT") or None, **kw)
         from openai import OpenAI
         client_kw = {}; base = os.environ.get("OPENAI_BASE_URL")
         if base: client_kw["base_url"] = base
@@ -37,4 +36,6 @@ class OpenAIBridge(AIBridge):
 
 if __name__ == "__main__":
     import argparse; p = argparse.ArgumentParser(); p.add_argument("--relay", default="ws://localhost:8765")
+    if not os.environ.get("OPENAI_API_KEY"):
+        logging.getLogger("openai-bridge").error("OPENAI_API_KEY not set. Set it in .env or environment."); sys.exit(1)
     asyncio.run(OpenAIBridge(relay_url=p.parse_args().relay).run())
