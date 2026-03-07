@@ -1,265 +1,234 @@
 <div align="center">
 
-# ZeroRelay
+# ZeroRelay Template
 
-**Multi-agent AI relay chat over private mesh networking**
+**Build your own multi-agent AI relay chat**
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![WebSocket](https://img.shields.io/badge/protocol-WebSocket-010101?style=flat-square&logo=socketdotio&logoColor=white)](https://websockets.readthedocs.io/)
-[![Tailscale](https://img.shields.io/badge/network-Tailscale-242424?style=flat-square&logo=tailscale&logoColor=white)](https://tailscale.com)
-[![Telegram Bot](https://img.shields.io/badge/interface-Telegram_Bot-26A5E4?style=flat-square&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
-[![systemd](https://img.shields.io/badge/managed_by-systemd-4B8BBE?style=flat-square&logo=linux&logoColor=white)](#systemd-services)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+Mix and match AI models and chat platforms in real-time conversations with humans in the loop.
 
-A real-time WebSocket broker that enables structured multi-party conversations between humans and AI agents — each running different models, on different infrastructure, communicating through a unified relay with @-mention routing, session persistence, and loop prevention.
-
-[Architecture](#architecture) · [Features](#features) · [Setup](#setup) · [How It Works](#how-it-works)
+[Prerequisites](#prerequisites) · [Quick Start](#quick-start) · [Architecture](#architecture) · [AI Bridges](#ai-bridges) · [Chat Bridges](#chat-bridges) · [Build Your Own](#build-your-own-bridge)
 
 </div>
 
 ---
 
-## Why ZeroRelay?
+## What Is This?
 
-Running multiple AI agents is easy. Getting them to **talk to each other** — without infinite loops, lost context, or copy-paste middlemen — is the hard part.
+ZeroRelay is a template for building **multi-party AI relay chats** — conversations where humans and AI agents (running different models, on different infrastructure) talk together through a unified WebSocket broker.
 
-ZeroRelay solves this with a lightweight WebSocket broker that:
+Pick your AI backends. Pick your chat interface. Deploy. Talk.
 
-- **Routes messages via @-mentions** — agents only respond when addressed, eliminating loops
-- **Bridges different AI backends** — Claude (Anthropic) and Zee (OpenClaw/GPT) in the same conversation
-- **Keeps humans in the loop** — full visibility and control via Telegram
-- **Runs on private infrastructure** — Tailscale mesh, no public endpoints, your models on your hardware
+```
+You (Telegram) ←→ ZeroRelay ←→ Claude (Anthropic)
+                     ↕
+                   GPT-4o (OpenAI)
+                     ↕
+                   Gemini (Google)
+                     ↕
+                   Llama (Ollama, local)
+```
+
+### Key Features
+
+- **@-mention routing** — agents only respond when addressed, preventing infinite loops
+- **Model-agnostic** — Claude, GPT, Gemini, Ollama, OpenClaw, or any API
+- **Platform-agnostic** — Telegram, Discord, Slack, browser, or terminal
+- **Human-in-the-loop** — you're the conductor, not a spectator
+- **Private by default** — designed for Tailscale mesh, no public endpoints required
+- **Minimal** — pure Python, no framework, no database
+
+## Prerequisites
+
+### Everyone Needs
+
+| Requirement | Why | Check |
+|---|---|---|
+| **Linux server** | VPS, Raspberry Pi, home server — anything with systemd | Any Debian/Ubuntu/Fedora/Arch |
+| **Python 3.12+** | Runtime for relay and all bridges | `python3 --version` |
+| **pip** | Package installer | `pip --version` |
+| **git** | To clone the repo | `git --version` |
+
+### Recommended
+
+| Requirement | Why | Check |
+|---|---|---|
+| **Tailscale** | Private mesh networking — keeps relay off public internet | `tailscale status` |
+| **Root access** | For systemd service install (not needed for testing) | `whoami` |
+
+### Per AI Backend
+
+| Backend | What You Need | Cost | Setup Time |
+|---|---|---|---|
+| **Ollama** | [Ollama](https://ollama.com) installed + a model pulled | Free | 5 min |
+| **Claude (API)** | [Anthropic API key](https://console.anthropic.com/) | Pay-per-use (~$3/1M tokens) | 2 min |
+| **GPT (API)** | [OpenAI API key](https://platform.openai.com/api-keys) | Pay-per-use (~$2.50/1M tokens) | 2 min |
+| **Gemini (API)** | [Google API key](https://aistudio.google.com/apikey) | Free tier (15 RPM) | 2 min |
+| **Claude Code CLI** | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed + Anthropic account | Pro sub ($20/mo) | 10 min |
+| **OpenClaw** | Docker + [OpenClaw](https://github.com/openclaw) running + ChatGPT subscription | Sub ($20/mo) | 30 min |
+
+### Per Chat Interface
+
+| Interface | What You Need | Cost | Setup Time |
+|---|---|---|---|
+| **Terminal CLI** | Nothing extra | Free | 0 min |
+| **Telegram** | Bot token from [@BotFather](https://t.me/BotFather) + your chat ID from [@userinfobot](https://t.me/userinfobot) | Free | 5 min |
+| **Discord** | Bot from [Discord Developer Portal](https://discord.com/developers/applications) + channel ID | Free | 10 min |
+| **Slack** | Slack App with [Socket Mode](https://api.slack.com/apis/socket-mode) + workspace admin | Free | 15 min |
+
+### Cheapest Setup (Zero Cost)
+
+Ollama + Terminal CLI. No API keys, no accounts, runs entirely local:
+
+```bash
+# Install Ollama (if not already)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2
+
+# Run ZeroRelay
+python3 setup.py   # Select Ollama + CLI
+```
+
+### Most Common Setup
+
+One cloud API (Anthropic or OpenAI) + Telegram. Costs a few cents per conversation, works from your phone.
+
+## Quick Start
+
+### Automated Setup (recommended)
+
+```bash
+git clone https://github.com/zeroshotstudio/ZeroRelay.git
+cd ZeroRelay
+sudo python3 setup.py
+```
+
+The setup script will walk you through choosing backends, configuring credentials, installing dependencies, and starting systemd services.
+
+### Manual Setup
+
+```bash
+git clone https://github.com/zeroshotstudio/ZeroRelay.git && cd ZeroRelay
+cp config.example.env .env   # Edit with your API keys
+pip install websockets
+
+# Start relay
+python3 core/zerorelay.py --host 0.0.0.0 &
+
+# Start an AI backend
+ANTHROPIC_API_KEY=sk-... python3 bridges/ai/anthropic_api.py --relay ws://localhost:8765 &
+
+# Start a chat interface
+python3 bridges/chat/cli.py --relay ws://localhost:8765 --role jimmy
+```
+
+Then type: `@claude what's the best way to handle rate limiting?`
+
+### Verify Install
+
+```bash
+python3 setup.py --check
+```
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                         TAILSCALE MESH                          │
-│                                                                  │
-│  ┌──────────────┐     ┌──────────────────┐     ┌──────────────┐ │
-│  │   Telegram   │────►│                  │◄────│    Claude     │ │
-│  │   Bridge     │     │    ZeroRelay     │     │    Bridge     │ │
-│  │              │◄────│    (broker)      │────►│              │ │
-│  │  jimmy       │     │    :8765         │     │  vps_claude  │ │
-│  └──────┬───────┘     │                  │     └──────┬───────┘ │
-│         │             └────────┬─────────┘            │         │
-│         │                      │                      │         │
-│         ▼                      │                      ▼         │
-│  ┌──────────────┐              │              ┌──────────────┐  │
-│  │  Telegram    │              └──────────────►│  Claude CLI  │  │
-│  │  Bot API     │     ┌──────────────┐        │  (claude -p) │  │
-│  └──────────────┘     │  Zee Bridge  │        └──────────────┘  │
-│                       │              │                           │
-│                       │  zee         │                           │
-│                       └──────┬───────┘                           │
-│                              │                                   │
-│                              ▼                                   │
-│                       ┌──────────────┐                           │
-│                       │  OpenClaw    │                           │
-│                       │  Gateway     │                           │
-│                       │  (Docker)    │                           │
-│                       └──────────────┘                           │
-└──────────────────────────────────────────────────────────────────┘
+  Chat Bridges          ZeroRelay         AI Bridges
+  ┌──────────┐         ┌────────┐       ┌────────────┐
+  │ Telegram │◄──ws──►│        │◄──ws──►│ Claude CLI │
+  │ Discord  │◄──ws──►│ Broker │◄──ws──►│ OpenAI API │
+  │  Slack   │◄──ws──►│ :8765  │◄──ws──►│ Gemini API │
+  │   CLI    │◄──ws──►│        │◄──ws──►│   Ollama   │
+  └──────────┘         └────────┘       └────────────┘
 ```
 
-## Components
+Every bridge connects as a named **role**. Messages broadcast to all others. AI bridges only respond when @-mentioned.
 
-| Component | Role ID | Runtime | Description |
-|-----------|---------|---------|-------------|
-| **zerorelay.py** | — | WebSocket server | Message broker with role validation, broadcast routing, and history |
-| **claude-bridge.py** | `vps_claude` | `claude -p` | Anthropic Claude via CLI with persistent sessions and context compression |
-| **zerobridge.py** | `zee` | `docker exec` → OpenClaw | GPT-class model via OpenClaw gateway with transcript context injection |
-| **telegram-bridge.py** | `jimmy` | Telegram Bot API | Human interface with commands, sticky routing, and typing indicators |
+## AI Bridges
 
-## Features
+| Bridge | File | Backend | Tags | Dependency |
+|--------|------|---------|------|------------|
+| Claude Code | `bridges/ai/claude_code.py` | `claude -p` CLI | `@claude` `@c` | Claude Code CLI |
+| Anthropic | `bridges/ai/anthropic_api.py` | Messages API | `@claude` `@c` | `anthropic` |
+| OpenAI | `bridges/ai/openai_api.py` | Chat Completions | `@gpt` `@g` | `openai` |
+| Gemini | `bridges/ai/gemini_api.py` | Gemini API | `@gemini` `@gem` | `google-genai` |
+| Ollama | `bridges/ai/ollama.py` | Local REST API | `@ollama` `@local` | Ollama running |
+| OpenClaw | `bridges/ai/openclaw.py` | Gateway CLI | `@z` `@zee` | Docker + OpenClaw |
 
-### @-Mention Routing
+The OpenAI bridge works with any compatible API — set `OPENAI_BASE_URL` for Together, Groq, etc.
 
-Agents only activate when explicitly addressed — the core mechanism that prevents infinite AI-to-AI loops.
+## Chat Bridges
 
-```
-Jimmy:   @c what do you think about microservices vs monolith?
-Claude:  For your scale, monolith. But @z could check what's actually deployed.
-Zee:     Running on 3 containers right now. Monolith would simplify the stack.
-```
+| Bridge | File | Platform | Dependency |
+|--------|------|----------|------------|
+| Telegram | `bridges/chat/telegram.py` | Telegram Bot | `httpx` |
+| Discord | `bridges/chat/discord.py` | Discord Bot | `discord.py` |
+| Slack | `bridges/chat/slack.py` | Slack Socket Mode | `slack-bolt` |
+| CLI | `bridges/chat/cli.py` | Terminal | (none) |
 
-| Tag | Routes to |
-|-----|-----------|
-| `@claude` · `@c` | Claude (Anthropic) |
-| `@z` · `@zee` | Zee (OpenClaw/GPT) |
+Telegram includes: sticky addressing, `/status`, `/start`, `/reset`, `/killswitch`, typing indicators, streaming.
 
-### Sticky Addressing
+## Loop Prevention
 
-Tag once, then just type. Messages auto-route to the last agent you addressed until you switch.
+Three layers prevent infinite AI-to-AI response chains:
 
-```
-Jimmy:   @c explain kubernetes       ← sets sticky to Claude
-Jimmy:   what about docker swarm?    ← auto-routed to Claude
-Jimmy:   @z check our docker setup   ← switches sticky to Zee
-Jimmy:   show me the compose file    ← auto-routed to Zee
-```
+1. **Tag-gating** — AI bridges ignore messages without their @-tag
+2. **Self-skip** — bridges discard their own messages
+3. **Meta filtering** — typing indicators and stream chunks are invisible to AI
 
-### Telegram Commands
+## Build Your Own Bridge
 
-Registered in the bot menu — tap `/` to see them.
+Subclass `AIBridge` and implement `_sync_generate()`:
 
-| Command | Action |
-|---------|--------|
-| `/status` | Service health check (✓/✗ per bridge) |
-| `/start` | Start Claude + Zee bridges |
-| `/reset` | Rotate sessions, clear context |
-| `/killswitch` | Emergency stop — kills all AI bridges |
+```python
+from core.base_bridge import AIBridge
 
-### Session Management
+class MyBridge(AIBridge):
+    def __init__(self, relay_url):
+        super().__init__(
+            relay_url=relay_url, role="my_model",
+            tags=["@mymodel", "@m"], display_name="My Model",
+            system_prompt="You are a helpful assistant in a relay chat.",
+        )
 
-| Agent | Strategy | Context Window | Reset |
-|-------|----------|---------------|-------|
-| Claude | Persistent CLI sessions (`--session-id`) | Full history with automatic compression | `/reset` rotates session UUID |
-| Zee | OpenClaw session key | Transcript buffer (last 30 messages) | `/reset` or auto-reset after 30 min idle |
+    def _sync_generate(self, prompt, context):
+        response = my_api.chat(prompt)
+        return response.text
 
-### Loop Prevention
-
-Three layers ensure agents never trigger infinite response chains:
-
-1. **Tag-gating** — agents ignore untagged messages entirely
-2. **Self-skip** — agents discard their own messages
-3. **Meta filtering** — typing indicators and stream chunks are invisible to agents
-
-### Typing Indicators
-
-Native Telegram "typing..." animation while agents generate responses. Kept alive with 4-second heartbeats — no silent waiting.
-
-### Agent System Prompts
-
-Each agent receives structured instructions covering:
-- **Identity** — who they are, where they run, their role name
-- **Relay mechanics** — how @-routing works, what they can see
-- **Capabilities** — what to handle vs. what to defer to the other agent
-- **Response style** — conversational, concise, no document formatting
-
-## Setup
-
-### Prerequisites
-
-| Requirement | Purpose |
-|-------------|---------|
-| **Python 3.12+** | Runtime for all bridges |
-| **Tailscale** | Private mesh networking |
-| **Claude Code CLI** | `claude -p` for AI responses ([docs](https://docs.anthropic.com/en/docs/claude-code)) |
-| **OpenClaw** | Gateway for Zee agent (Docker) |
-| **Telegram Bot** | Human interface ([@BotFather](https://t.me/BotFather)) |
-
-### Install
-
-```bash
-# 1. Dependencies
-pip install websockets httpx
-
-# 2. Deploy
-mkdir -p /opt/zerorelay
-cp zerorelay.py zerobridge.py claude-bridge.py telegram-bridge.py /opt/zerorelay/
-
-# 3. Configure Telegram
-cat > /opt/zerorelay/telegram.env << 'EOF'
-TELEGRAM_BOT_TOKEN=<your-token>
-TELEGRAM_CHAT_ID=<your-chat-id>
-EOF
-chmod 600 /opt/zerorelay/telegram.env
-
-# 4. Install services
-cp *.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now zerorelay claude-bridge zerobridge telegram-bridge
-
-# 5. Verify
-systemctl status zerorelay claude-bridge zerobridge telegram-bridge
+asyncio.run(MyBridge("ws://localhost:8765").run())
 ```
 
-### Configuration
+The base class handles: WebSocket connection, reconnection, @-mention routing, transcript tracking, typing indicators, and loop prevention.
 
-Each bridge reads constants from the top of its file:
+## Deployment
 
-| File | Key Settings |
-|------|-------------|
-| `zerorelay.py` | `--host` (Tailscale IP), `--port` (default `8765`) |
-| `claude-bridge.py` | `RELAY_URL`, `CLAUDE_CONTEXT` (system prompt), `CLI_TIMEOUT_SEC` |
-| `zerobridge.py` | `RELAY_URL`, `GATEWAY_URL`, `GATEWAY_TOKEN`, `RELAY_CONTEXT`, `SESSION_IDLE_RESET_SEC` |
-| `telegram-bridge.py` | `RELAY_URL`, credentials via `telegram.env` |
-
-## How It Works
+See `services/README.md` for systemd unit templates. The pattern:
 
 ```
-  Jimmy (Telegram)              ZeroRelay                Claude Bridge
-       │                          │                          │
-       │  "@c review this plan"   │                          │
-       ├─────────────────────────►│                          │
-       │                          │  broadcast               │
-       │                          ├─────────────────────────►│
-       │                          │                          │  detect @c tag
-       │                          │                          │  claude -p --session-id
-       │                          │                          │  ┌──────────────┐
-       │                          │                          │──│ Claude API   │
-       │                          │                          │  └──────┬───────┘
-       │                          │       response           │◄────────┘
-       │                          │◄─────────────────────────┤
-       │   "🧠 Claude: ..."      │                          │
-       │◄─────────────────────────┤                          │
-       │                          │                          │
-```
-
-1. **Jimmy** types in Telegram → Telegram bridge forwards to relay
-2. **Relay** broadcasts to all connected role clients
-3. **Bridge** with matching @-tag activates, calls its AI backend
-4. **Response** flows back through relay → appears in Telegram
-5. If the response contains another @-tag, the other agent picks it up
-
-### Systemd Services
-
-All four components run as systemd services with `Restart=on-failure`. The relay starts first, bridges connect after.
-
-```
-zerorelay.service          ← broker (must start first)
+zerorelay.service          ← broker (start first)
 ├── claude-bridge.service  ← After=zerorelay.service
-├── zerobridge.service     ← After=zerorelay.service
+├── gpt-bridge.service     ← After=zerorelay.service
 └── telegram-bridge.service ← After=zerorelay.service
 ```
 
-## Tech Stack
+For private networking, bind to Tailscale: `python3 core/zerorelay.py --host $(tailscale ip -4)`
 
-| Layer | Technology |
-|-------|-----------|
-| **Transport** | WebSockets via [`websockets`](https://websockets.readthedocs.io/) |
-| **Network** | [Tailscale](https://tailscale.com) — private WireGuard mesh |
-| **AI (Claude)** | [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) — `claude -p` with session persistence |
-| **AI (Zee)** | [OpenClaw](https://github.com/openclaw) gateway — `docker exec` CLI shell-out |
-| **Human I/O** | [Telegram Bot API](https://core.telegram.org/bots/api) via `httpx` long-polling |
-| **Process mgmt** | systemd with auto-restart on failure |
+## Example Setups
 
-## Project Structure
-
-```
-zerorelay/
-├── zerorelay.py              # WebSocket broker
-├── claude-bridge.py          # Claude ↔ relay bridge
-├── zerobridge.py             # Zee/OpenClaw ↔ relay bridge
-├── telegram-bridge.py        # Telegram ↔ relay bridge
-├── zerorelay.service         # systemd unit — broker
-├── claude-bridge.service     # systemd unit — Claude
-├── zerobridge.service        # systemd unit — Zee
-├── telegram-bridge.service   # systemd unit — Telegram
-├── telegram.env.example      # Telegram credentials template
-├── zerorelay-chat.jsx        # Browser chat UI (React, legacy)
-└── .gitignore
+**Local Ollama + Terminal** (zero API keys):
+```bash
+python3 core/zerorelay.py & python3 bridges/ai/ollama.py & python3 bridges/chat/cli.py --role jimmy
 ```
 
-## License
+**Three Models + Discord**:
+```bash
+ANTHROPIC_API_KEY=... python3 bridges/ai/anthropic_api.py &
+OPENAI_API_KEY=... python3 bridges/ai/openai_api.py &
+GOOGLE_API_KEY=... python3 bridges/ai/gemini_api.py &
+DISCORD_BOT_TOKEN=... DISCORD_CHANNEL_ID=... python3 bridges/chat/discord.py
+```
 
-[MIT](LICENSE) — use it, fork it, ship it.
+## Origin
 
----
+Started as a hack to stop copy-pasting between Claude.ai and ChatGPT. Grew into a production relay on a VPS with Tailscale, systemd, and Telegram. This template extracts the pattern for anyone.
 
-<div align="center">
-
-Built by [ZeroShot Studio](https://github.com/zeroshotstudio)
-
-</div>
+Built by [ZeroShot Studio](https://github.com/zeroshotstudio). [MIT License](LICENSE).

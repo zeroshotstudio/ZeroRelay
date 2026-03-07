@@ -29,7 +29,7 @@ def cp(t, c="reset", b=False):
 async def display(ws):
     async for raw in ws:
         try: data = json.loads(raw)
-        except: continue
+        except Exception: continue
         mt = data.get("type")
         if mt == "connected":
             peers = data.get("peers_online", [])

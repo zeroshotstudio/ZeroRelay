@@ -12,6 +12,7 @@ BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 CHANNEL_ID = int(os.environ.get("DISCORD_CHANNEL_ID", "0"))
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("DISCORD_ROLE", "operator")
+RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
 SENDER_ICONS = {}
 s = os.environ.get("DISCORD_SENDER_ICONS", "")
@@ -46,19 +47,20 @@ async def on_message(message):
     log.info(f"Discord > Relay: {text[:80]}")
     if ws_conn:
         try: await ws_conn.send(json.dumps({"content": text}))
-        except: await message.channel.send("Warning: Relay connection lost.")
+        except Exception: await message.channel.send("Warning: Relay connection lost.")
 
 async def relay_listener():
     global ws_conn
     while True:
         try:
-            uri = f"{RELAY_URL}?role={ROLE}"
+            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
+            uri = f"{RELAY_URL}?role={ROLE}{token_param}"
             async with websockets.connect(uri) as ws:
                 ws_conn = ws; log.info("Connected to relay")
                 if relay_ch: await relay_ch.send("**ZeroRelay connected**")
                 async for raw in ws:
                     try: data = json.loads(raw)
-                    except: continue
+                    except Exception: continue
                     mt = data.get("type")
                     if mt == "connected":
                         peers = data.get("peers_online", [])

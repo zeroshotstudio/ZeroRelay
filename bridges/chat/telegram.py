@@ -18,7 +18,7 @@ import websockets
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("telegram-bridge")
 
-ENV_FILE = os.environ.get("TELEGRAM_ENV_FILE", "./telegram.env")
+ENV_FILE = os.environ.get("TELEGRAM_ENV_FILE", "./.env")
 if os.path.exists(ENV_FILE):
     with open(ENV_FILE) as f:
         for line in f:
@@ -110,7 +110,7 @@ async def relay_to_telegram(ws):
     stream_ids = {}
     async for raw in ws:
         try: data = json.loads(raw)
-        except: continue
+        except Exception: continue
         mt = data.get("type")
         if mt == "connected":
             peers = data.get("peers_online", [])

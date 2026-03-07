@@ -15,6 +15,7 @@ APP_TOKEN = os.environ.get("SLACK_APP_TOKEN", "")
 CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID", "")
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("SLACK_ROLE", "operator")
+RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
 SENDER_ICONS = {}
 s = os.environ.get("SLACK_SENDER_ICONS", "")
@@ -48,11 +49,12 @@ def send_to_slack(text):
 async def relay_listener():
     while True:
         try:
-            async with websockets.connect(f"{RELAY_URL}?role={ROLE}") as ws:
+            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
+            async with websockets.connect(f"{RELAY_URL}?role={ROLE}{token_param}") as ws:
                 ws_ref["ws"] = ws; send_to_slack("*ZeroRelay connected*")
                 async for raw in ws:
                     try: data = json.loads(raw)
-                    except: continue
+                    except Exception: continue
                     mt = data.get("type")
                     if mt == "connected":
                         send_to_slack(f"Online: {', '.join(data.get('peers_online', [])) or 'none'}"); continue

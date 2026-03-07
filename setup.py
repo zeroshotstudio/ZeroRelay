@@ -37,7 +37,7 @@ def detect_tailscale():
     try:
         r = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=5)
         return r.stdout.strip().split("\n")[0] if r.returncode == 0 else None
-    except: return None
+    except Exception: return None
 
 def get_python_version():
     return sys.version_info
@@ -317,9 +317,9 @@ def main():
     header("Step 6: Installing")
     pkgs = list(set(["websockets"] + sum([AI_BACKENDS[k].get("pip", []) for k in sel_ai], []) + chat.get("pip", [])))
     p(f"  pip install {' '.join(pkgs)}")
-    r = subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages", *pkgs], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, "-m", "pip", "install", *pkgs], capture_output=True, text=True)
     if r.returncode != 0:
-        r = subprocess.run([sys.executable, "-m", "pip", "install", *pkgs], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages", *pkgs], capture_output=True, text=True)
     ok("Dependencies installed") if r.returncode == 0 else warn("pip failed — install manually")
 
     idir = INSTALL_DIR if IS_ROOT else SCRIPT_DIR
