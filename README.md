@@ -1,10 +1,16 @@
 <div align="center">
 
-# ZeroRelay Template
+<img src="assets/header.svg" alt="ZeroRelay" width="100%">
+
+<br/><br/>
 
 **Build your own multi-agent AI relay chat**
 
 Mix and match AI models and chat platforms in real-time conversations with humans in the loop.
+
+[![CI](https://github.com/zeroshotstudio/ZeroRelay/actions/workflows/ci.yml/badge.svg)](https://github.com/zeroshotstudio/ZeroRelay/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 [Prerequisites](#prerequisites) · [Quick Start](#quick-start) · [Architecture](#architecture) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
 
@@ -18,14 +24,20 @@ ZeroRelay is a template for building **multi-party AI relay chats** — conversa
 
 Pick your AI backends. Pick your chat interface. Deploy. Talk.
 
-```
-You (Telegram) ←→ ZeroRelay ←→ Claude (Anthropic)
-                     ↕
-                   GPT-4o (OpenAI)
-                     ↕
-                   Gemini (Google)
-                     ↕
-                   Llama (Ollama, local)
+```mermaid
+graph LR
+    You["You (Telegram)"] <-->|ws| R["ZeroRelay<br/>:8765"]
+    R <-->|ws| C["Claude<br/>(Anthropic)"]
+    R <-->|ws| G["GPT-4o<br/>(OpenAI)"]
+    R <-->|ws| Gem["Gemini<br/>(Google)"]
+    R <-->|ws| L["Llama<br/>(Ollama)"]
+
+    style R fill:#6366f1,stroke:#4f46e5,color:#fff
+    style You fill:#22d3ee,stroke:#06b6d4,color:#000
+    style C fill:#a78bfa,stroke:#8b5cf6,color:#000
+    style G fill:#a78bfa,stroke:#8b5cf6,color:#000
+    style Gem fill:#a78bfa,stroke:#8b5cf6,color:#000
+    style L fill:#a78bfa,stroke:#8b5cf6,color:#000
 ```
 
 ### Key Features
@@ -131,17 +143,68 @@ python3 setup.py --check
 
 ## Architecture
 
-```
-  Chat Bridges          ZeroRelay         AI Bridges
-  ┌──────────┐         ┌────────┐       ┌────────────┐
-  │ Telegram │◄──ws──►│        │◄──ws──►│ Claude CLI │
-  │ Discord  │◄──ws──►│ Broker │◄──ws──►│ OpenAI API │
-  │  Slack   │◄──ws──►│ :8765  │◄──ws──►│ Gemini API │
-  │   CLI    │◄──ws──►│        │◄──ws──►│   Ollama   │
-  └──────────┘         └────────┘       └────────────┘
+```mermaid
+graph LR
+    subgraph Chat Bridges
+        TG["Telegram"]
+        DC["Discord"]
+        SL["Slack"]
+        CLI["CLI"]
+    end
+
+    subgraph Broker
+        R["ZeroRelay<br/>WebSocket :8765"]
+    end
+
+    subgraph AI Bridges
+        CC["Claude Code"]
+        AN["Anthropic API"]
+        OA["OpenAI API"]
+        GM["Gemini API"]
+        OL["Ollama"]
+        OC["OpenClaw"]
+    end
+
+    TG <-->|ws| R
+    DC <-->|ws| R
+    SL <-->|ws| R
+    CLI <-->|ws| R
+    R <-->|ws| CC
+    R <-->|ws| AN
+    R <-->|ws| OA
+    R <-->|ws| GM
+    R <-->|ws| OL
+    R <-->|ws| OC
+
+    style R fill:#6366f1,stroke:#4f46e5,color:#fff
+    style TG fill:#0088cc,stroke:#006699,color:#fff
+    style DC fill:#5865F2,stroke:#4752C4,color:#fff
+    style SL fill:#4A154B,stroke:#3B1139,color:#fff
+    style CLI fill:#22d3ee,stroke:#06b6d4,color:#000
 ```
 
 Every bridge connects as a named **role**. Messages broadcast to all others. AI bridges only respond when @-mentioned.
+
+### Message Flow
+
+```mermaid
+sequenceDiagram
+    participant Op as Operator (Telegram)
+    participant R as ZeroRelay Broker
+    participant C as Claude Bridge
+    participant G as GPT Bridge
+
+    Op->>R: @claude explain WebSockets
+    R->>C: broadcast (tagged)
+    R->>G: broadcast (not tagged, ignored)
+    C->>C: is_addressed() → true
+    G->>G: is_addressed() → false (skip)
+    C->>R: typing indicator
+    R->>Op: [Claude typing...]
+    C->>R: response
+    R->>Op: [Claude] WebSockets provide...
+    R->>G: broadcast (from claude, ignored)
+```
 
 ## AI Bridges
 
@@ -171,6 +234,22 @@ Telegram includes: sticky addressing, `/status`, `/start`, `/reset`, `/killswitc
 
 Three layers prevent infinite AI-to-AI response chains:
 
+```mermaid
+flowchart TD
+    M["Incoming Message"] --> L1{"Tagged with<br/>my @-mention?"}
+    L1 -->|No| DROP1["Ignore"]
+    L1 -->|Yes| L2{"From myself?"}
+    L2 -->|Yes| DROP2["Ignore"]
+    L2 -->|No| L3{"Meta type?"}
+    L3 -->|"typing / stream"| DROP3["Ignore"]
+    L3 -->|"normal"| RESPOND["Generate Response"]
+
+    style DROP1 fill:#ef4444,stroke:#dc2626,color:#fff
+    style DROP2 fill:#ef4444,stroke:#dc2626,color:#fff
+    style DROP3 fill:#ef4444,stroke:#dc2626,color:#fff
+    style RESPOND fill:#22c55e,stroke:#16a34a,color:#fff
+```
+
 1. **Tag-gating** — AI bridges ignore messages without their @-tag
 2. **Self-skip** — bridges discard their own messages
 3. **Meta filtering** — typing indicators and stream chunks are invisible to AI
@@ -180,7 +259,8 @@ Three layers prevent infinite AI-to-AI response chains:
 Subclass `AIBridge` and implement `_sync_generate()`:
 
 ```python
-import asyncio
+import asyncio, os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 from core.base_bridge import AIBridge
 
 class MyBridge(AIBridge):
@@ -204,11 +284,13 @@ The base class handles: WebSocket connection, reconnection, @-mention routing, t
 
 See `services/README.md` for systemd unit templates. The pattern:
 
-```
-zerorelay.service          ← broker (start first)
-├── claude-bridge.service  ← After=zerorelay.service
-├── gpt-bridge.service     ← After=zerorelay.service
-└── telegram-bridge.service ← After=zerorelay.service
+```mermaid
+graph TD
+    R["zerorelay.service<br/>(broker — start first)"] --> C["zerorelay-claude.service"]
+    R --> G["zerorelay-gpt.service"]
+    R --> T["zerorelay-telegram.service"]
+
+    style R fill:#6366f1,stroke:#4f46e5,color:#fff
 ```
 
 For private networking, bind to Tailscale: `python3 core/zerorelay.py --host $(tailscale ip -4)`
@@ -243,11 +325,11 @@ ZeroRelay is designed to run on private infrastructure. Multiple layers protect 
 | **Operator commands** | Only the operator role can issue `[RESET]` | `ZERORELAY_OPERATOR` |
 | **Service isolation** | systemd hardening (ProtectSystem, PrivateTmp, NoNewPrivileges) | See `services/README.md` |
 
-**Important:** Always set `RELAY_TOKEN` in production. Without it, anyone who can reach the relay port can connect.
+> **Important:** Always set `RELAY_TOKEN` in production. Without it, anyone who can reach the relay port can connect.
 
 ## Environment Variables
 
-All configuration is via environment variables. See `config.example.env` for the full reference. Key variables:
+All configuration is via environment variables. See [`config.example.env`](config.example.env) for the full reference. Key variables:
 
 | Variable | Used By | Required | Description |
 |----------|---------|----------|-------------|
@@ -263,7 +345,8 @@ All configuration is via environment variables. See `config.example.env` for the
 
 ## Troubleshooting
 
-### Connection refused
+<details>
+<summary><strong>Connection refused</strong></summary>
 
 ```
 ConnectionRefusedError: relay not available
@@ -280,8 +363,10 @@ ss -tlnp | grep 8765              # check if port is listening
 # Bridges must use the same host:port the relay is bound to
 python3 core/zerorelay.py --host 0.0.0.0 --port 8765   # listen on all interfaces
 ```
+</details>
 
-### Invalid or missing token
+<details>
+<summary><strong>Invalid or missing token</strong></summary>
 
 ```
 websockets.exceptions.ConnectionClosedError: 1008 Invalid or missing token
@@ -296,8 +381,10 @@ journalctl -u zerorelay -n 20     # look for "Auth: enabled"
 # Ensure bridges have it
 grep RELAY_TOKEN /opt/zerorelay/.env
 ```
+</details>
 
-### Role already connected
+<details>
+<summary><strong>Role already connected</strong></summary>
 
 ```
 websockets.exceptions.ConnectionClosedError: 1008 Role 'claude' already connected
@@ -310,8 +397,10 @@ systemctl stop zerorelay-claude
 # or find and kill the process
 ps aux | grep bridges/ai
 ```
+</details>
 
-### pip install fails on newer distros
+<details>
+<summary><strong>pip install fails on newer distros</strong></summary>
 
 ```
 error: externally-managed-environment
@@ -336,8 +425,10 @@ If using a venv, update your systemd `ExecStart` to use the venv Python:
 ```ini
 ExecStart=/opt/zerorelay/venv/bin/python3 /opt/zerorelay/core/zerorelay.py --host ...
 ```
+</details>
 
-### Claude Code bridge: "session already in use"
+<details>
+<summary><strong>Claude Code bridge: "session already in use"</strong></summary>
 
 The Claude CLI session is locked by another process. The bridge handles this automatically by rotating to a new session, but if it persists:
 
@@ -348,18 +439,24 @@ systemctl restart zerorelay-claude
 
 # Or send /reset from your chat interface
 ```
+</details>
 
-### Telegram bot not responding
+<details>
+<summary><strong>Telegram bot not responding</strong></summary>
 
 1. Verify your bot token: `curl https://api.telegram.org/bot<TOKEN>/getMe`
 2. Verify chat ID: send a message to the bot, then check `curl https://api.telegram.org/bot<TOKEN>/getUpdates`
 3. Check `TELEGRAM_USER_ID` — if set incorrectly, all messages are rejected as unauthorized
+</details>
 
-### Bridges reconnecting in a loop
+<details>
+<summary><strong>Bridges reconnecting in a loop</strong></summary>
 
 Normal behavior when the relay isn't reachable. Bridges use exponential backoff (3s, 6s, 12s, ... up to 60s). Once the relay starts, they connect automatically.
+</details>
 
-### Ollama bridge: "is it running?"
+<details>
+<summary><strong>Ollama bridge: "is it running?"</strong></summary>
 
 ```bash
 # Check Ollama is running
@@ -369,10 +466,17 @@ ollama list                       # verify model is pulled
 # Test directly
 curl http://localhost:11434/api/chat -d '{"model":"llama3.2","messages":[{"role":"user","content":"hi"}],"stream":false}'
 ```
+</details>
 
-### How do I add a new AI model?
+<details>
+<summary><strong>How do I add a new AI model?</strong></summary>
 
 See [Build Your Own Bridge](#build-your-own-bridge). Implement `_sync_generate()` — the base class handles everything else.
+</details>
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding bridges, fixing bugs, and submitting PRs.
 
 ## Origin
 
