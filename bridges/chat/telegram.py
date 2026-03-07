@@ -12,7 +12,7 @@ Env:
   TELEGRAM_AI_SERVICES, RELAY_TOKEN, TELEGRAM_ENV_FILE
 """
 
-import asyncio, json, logging, os, re, subprocess, sys
+import asyncio, html as html_mod, json, logging, os, re, subprocess, sys, time as time_mod
 import websockets
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -57,11 +57,14 @@ if tp:
         TAG_RE = re.compile(rf"@(?:{'|'.join(re.escape(p) for p in parts)})\b", re.IGNORECASE)
 
 sticky = {"agent": None}
+COMMAND_COOLDOWN = int(os.environ.get("TELEGRAM_COMMAND_COOLDOWN", "5"))
+_last_command_time = 0.0
 
 import httpx
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-def html_escape(t): return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+TG_MAX_MSG = 4000  # Telegram limit is 4096; leave margin for header
+def html_escape(t): return html_mod.escape(t, quote=True)
 def get_label(role): return SENDER_ICONS.get(role, role)
 def systemctl_cmd(action, svc):
     cmd = ["sudo", "systemctl", action, svc] if USE_SUDO else ["systemctl", action, svc]
@@ -73,12 +76,19 @@ async def tg_typing():
 
 async def tg_send(text, parse_mode="HTML"):
     async with httpx.AsyncClient() as c:
-        r = await c.post(f"{TG_API}/sendMessage", json={"chat_id": CHAT_ID, "text": text,
-            "parse_mode": parse_mode, "disable_web_page_preview": True})
-        if r.status_code == 200: return r.json().get("result", {}).get("message_id")
-        r2 = await c.post(f"{TG_API}/sendMessage", json={"chat_id": CHAT_ID, "text": text,
-            "disable_web_page_preview": True})
-        return r2.json().get("result", {}).get("message_id") if r2.status_code == 200 else None
+        # Chunk long messages to stay within Telegram's 4096-char limit
+        chunks = [text[i:i+TG_MAX_MSG] for i in range(0, len(text), TG_MAX_MSG)] if len(text) > TG_MAX_MSG else [text]
+        last_mid = None
+        for chunk in chunks:
+            r = await c.post(f"{TG_API}/sendMessage", json={"chat_id": CHAT_ID, "text": chunk,
+                "parse_mode": parse_mode, "disable_web_page_preview": True})
+            if r.status_code == 200:
+                last_mid = r.json().get("result", {}).get("message_id")
+            else:
+                r2 = await c.post(f"{TG_API}/sendMessage", json={"chat_id": CHAT_ID, "text": chunk,
+                    "disable_web_page_preview": True})
+                if r2.status_code == 200: last_mid = r2.json().get("result", {}).get("message_id")
+        return last_mid
 
 async def tg_edit(mid, text, parse_mode="HTML"):
     async with httpx.AsyncClient() as c:
@@ -155,6 +165,13 @@ async def telegram_to_relay(ws):
             for text in messages:
                 log.info(f"From Telegram ({len(text)} chars)")
                 cmd = text.strip().lower()
+                global _last_command_time
+                if cmd in ("/killswitch", "/start", "/status", "/reset"):
+                    now = time_mod.monotonic()
+                    if now - _last_command_time < COMMAND_COOLDOWN:
+                        await tg_send(f"<i>Cooldown active. Try again in {COMMAND_COOLDOWN}s.</i>")
+                        continue
+                    _last_command_time = now
                 if cmd == "/killswitch" and AI_SERVICES:
                     stopped = [s for s in AI_SERVICES if systemctl_cmd("stop", s).returncode == 0]
                     await tg_send(f"<b>KILLSWITCH</b>\nStopped: {', '.join(stopped) or 'none'}")

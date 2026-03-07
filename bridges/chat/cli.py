@@ -9,6 +9,7 @@ import websockets
 logging.basicConfig(level=logging.WARNING)
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("CLI_ROLE", "operator")
+RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
 C = {"reset": "\033[0m", "bold": "\033[1m", "dim": "\033[2m",
      "blue": "\033[34m", "green": "\033[32m", "yellow": "\033[33m",
@@ -66,7 +67,8 @@ async def main():
     cp(f"  Connecting to {RELAY_URL} as {ROLE}...\n", "dim")
     while True:
         try:
-            async with websockets.connect(f"{RELAY_URL}?role={ROLE}") as ws:
+            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
+            async with websockets.connect(f"{RELAY_URL}?role={ROLE}{token_param}") as ws:
                 d, i = asyncio.create_task(display(ws)), asyncio.create_task(inp(ws))
                 done, pend = await asyncio.wait([d, i], return_when=asyncio.FIRST_COMPLETED)
                 for t in pend: t.cancel()

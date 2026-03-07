@@ -24,6 +24,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 import sys
 import time
 from collections import deque
@@ -87,13 +88,14 @@ def check_rate_limit(role: str) -> bool:
     """Return True if message should be dropped."""
     now = time.monotonic()
     if role not in rate_limits:
-        rate_limits[role] = deque(maxlen=RATE_LIMIT_MAX)
+        rate_limits[role] = deque(maxlen=RATE_LIMIT_MAX + 1)
     timestamps = rate_limits[role]
     while timestamps and now - timestamps[0] > RATE_LIMIT_WINDOW:
         timestamps.popleft()
-    if len(timestamps) >= RATE_LIMIT_MAX:
-        return True
     timestamps.append(now)
+    if len(timestamps) > RATE_LIMIT_MAX:
+        timestamps.pop()
+        return True
     return False
 
 
@@ -101,13 +103,14 @@ def check_mcp_rate_limit(role: str) -> bool:
     """Return True if MCP message should be dropped."""
     now = time.monotonic()
     if role not in mcp_rate_limits:
-        mcp_rate_limits[role] = deque(maxlen=MCP_RATE_LIMIT_MAX)
+        mcp_rate_limits[role] = deque(maxlen=MCP_RATE_LIMIT_MAX + 1)
     timestamps = mcp_rate_limits[role]
     while timestamps and now - timestamps[0] > MCP_RATE_LIMIT_WINDOW:
         timestamps.popleft()
-    if len(timestamps) >= MCP_RATE_LIMIT_MAX:
-        return True
     timestamps.append(now)
+    if len(timestamps) > MCP_RATE_LIMIT_MAX:
+        timestamps.pop()
+        return True
     return False
 
 
@@ -119,7 +122,7 @@ async def handler(websocket):
     # Token authentication
     if RELAY_TOKEN:
         token = query.get("token", [None])[0]
-        if token != RELAY_TOKEN:
+        if not token or not secrets.compare_digest(token, RELAY_TOKEN):
             log.warning(f"Rejected: invalid token (role={role})")
             await websocket.close(1008, "Invalid or missing token")
             return
@@ -171,11 +174,13 @@ async def handler(websocket):
                     continue
                 registered = mcp_registry.register(role, tools)
                 log.info(f"[MCP] {role} registered {len(registered)} tools: {registered}")
-                update = json.dumps({"type": "mcp_tools_updated",
-                    "available_tools": mcp_registry.get_tools(),
-                    "timestamp": datetime.now().isoformat()})
+                now_ts = datetime.now().isoformat()
                 for r, ws_client in list(clients.items()):
-                    try: await ws_client.send(update)
+                    try:
+                        update = json.dumps({"type": "mcp_tools_updated",
+                            "available_tools": mcp_registry.get_tools(exclude_role=r),
+                            "timestamp": now_ts})
+                        await ws_client.send(update)
                     except Exception: pass
                 continue
 
@@ -235,7 +240,7 @@ async def handler(websocket):
                            "arguments": arguments, "timestamp": now_iso}
                 try:
                     await clients[owner].send(json.dumps(forward))
-                    log.info(f"[MCP] {role} -> {owner}: {tool_name}")
+                    log.info(f"[MCP] {role} -> {owner}: {tool_name} args_keys={list(arguments.keys())}")
                 except Exception:
                     mcp_pending.pop(call_id, None)
                     await websocket.send(json.dumps({"type": "mcp_tool_result",
@@ -306,11 +311,13 @@ async def handler(websocket):
         mcp_rate_limits.pop(role, None)
         # MCP cleanup: unregister tools and notify pending callers
         if mcp_registry.unregister_role(role):
-            update = json.dumps({"type": "mcp_tools_updated",
-                "available_tools": mcp_registry.get_tools(),
-                "timestamp": datetime.now().isoformat()})
+            now_ts = datetime.now().isoformat()
             for r, ws_client in list(clients.items()):
-                try: await ws_client.send(update)
+                try:
+                    update = json.dumps({"type": "mcp_tools_updated",
+                        "available_tools": mcp_registry.get_tools(exclude_role=r),
+                        "timestamp": now_ts})
+                    await ws_client.send(update)
                 except Exception: pass
         orphaned = [cid for cid, p in mcp_pending.items() if p["owner"] == role]
         for cid in orphaned:
@@ -359,6 +366,8 @@ async def main():
     roles_info = f"Restricted: {', '.join(sorted(VALID_ROLES))}" if VALID_ROLES else "Any role"
     log.info(f"ZeroRelay on ws://{args.host}:{args.port}")
     log.info(f"Auth: {'enabled' if RELAY_TOKEN else 'DISABLED'}")
+    if RELAY_TOKEN:
+        log.warning("Token is passed via query string. Use WSS (TLS) or a reverse proxy to prevent token exposure in logs.")
     log.info(f"MCP: timeout={MCP_CALL_TIMEOUT}s, rate={MCP_RATE_LIMIT_MAX}/{MCP_RATE_LIMIT_WINDOW}s")
     log.info(roles_info)
     asyncio.create_task(mcp_timeout_sweep())
