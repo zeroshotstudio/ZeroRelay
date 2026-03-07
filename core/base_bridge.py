@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import uuid
 from abc import ABC, abstractmethod
 
 import websockets
@@ -34,6 +35,8 @@ class BaseBridge(ABC):
         self.ws: websockets.WebSocketClientProtocol | None = None
         self.relay_token = os.environ.get("RELAY_TOKEN", "")
         self.operator_role = os.environ.get("ZERORELAY_OPERATOR", "operator")
+        self._mcp_pending: dict[str, asyncio.Future] = {}
+        self._available_remote_tools: list[dict] = []
 
         if tags:
             escaped = [re.escape(t.lstrip("@")) for t in tags]
@@ -75,6 +78,50 @@ class BaseBridge(ABC):
     async def send_typing(self):
         await self.send("", meta="typing_indicator")
 
+    # --- MCP Tool Broker methods ---
+
+    async def register_tools(self, tools: list[dict]):
+        """Register tools this bridge exposes with the relay."""
+        if not self.ws: return
+        msg = {"type": "mcp_register", "tools": tools}
+        try: await self.ws.send(json.dumps(msg))
+        except Exception as e: log.error(f"MCP register failed: {e}")
+
+    async def call_remote_tool(self, tool_name: str, arguments: dict,
+                               timeout: float = 30.0) -> dict:
+        """Call a remote tool through the relay. Returns result or error dict."""
+        if not self.ws:
+            return {"error": "Not connected"}
+        call_id = str(uuid.uuid4())
+        msg = {"type": "mcp_tool_call", "call_id": call_id,
+               "tool_name": tool_name, "arguments": arguments}
+        fut = asyncio.get_event_loop().create_future()
+        self._mcp_pending[call_id] = fut
+        await self.ws.send(json.dumps(msg))
+        try:
+            return await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            self._mcp_pending.pop(call_id, None)
+            return {"error": "Tool call timed out"}
+
+    async def on_tool_call(self, call_id: str, caller: str,
+                           tool_name: str, arguments: dict):
+        """Override to handle incoming tool calls. Must send result back."""
+        await self._send_tool_result(call_id, error=f"Tool '{tool_name}' not implemented")
+
+    async def _send_tool_result(self, call_id: str, result=None, error=None):
+        """Send a tool result back to the relay."""
+        if not self.ws: return
+        msg: dict = {"type": "mcp_tool_result", "call_id": call_id}
+        if result is not None: msg["result"] = result
+        if error is not None: msg["error"] = error
+        try: await self.ws.send(json.dumps(msg))
+        except Exception as e: log.error(f"MCP result send failed: {e}")
+
+    async def on_tools_updated(self, tools: list[dict]):
+        """Called when the available remote tools list changes."""
+        self._available_remote_tools = tools
+
     @abstractmethod
     async def on_message(self, sender: str, content: str, data: dict): pass
 
@@ -97,9 +144,24 @@ class BaseBridge(ABC):
                         try: data = json.loads(raw)
                         except json.JSONDecodeError: continue
                         msg_type = data.get("type")
+                        # MCP message dispatch
+                        if msg_type == "mcp_tool_call":
+                            await self.on_tool_call(data.get("call_id"),
+                                data.get("caller"), data.get("tool_name"),
+                                data.get("arguments", {}))
+                            continue
+                        if msg_type == "mcp_tool_result":
+                            call_id = data.get("call_id")
+                            fut = self._mcp_pending.pop(call_id, None)
+                            if fut and not fut.done(): fut.set_result(data)
+                            continue
+                        if msg_type == "mcp_tools_updated":
+                            await self.on_tools_updated(data.get("available_tools", []))
+                            continue
                         if msg_type == "connected":
                             for h in data.get("history", []):
                                 if h.get("type") == "message": self.transcript.append(h)
+                            self._available_remote_tools = data.get("available_tools", [])
                             await self.on_connect(data.get("peers_online", []))
                             continue
                         if msg_type == "system":

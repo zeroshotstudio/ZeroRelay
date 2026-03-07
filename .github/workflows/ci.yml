@@ -25,7 +25,7 @@ jobs:
         run: pip install websockets
 
       - name: Check Python syntax (all .py files)
-        run: python -m py_compile core/zerorelay.py && python -m py_compile core/base_bridge.py
+        run: python -m py_compile core/zerorelay.py && python -m py_compile core/base_bridge.py && python -m py_compile core/mcp_registry.py
 
       - name: Check bridge syntax
         run: |
@@ -34,7 +34,9 @@ jobs:
           done
 
       - name: Verify package imports
-        run: python -c "from core.base_bridge import AIBridge, BaseBridge; print('Package imports OK')"
+        run: |
+          python -c "from core.base_bridge import AIBridge, BaseBridge; print('Package imports OK')"
+          python -c "from core.mcp_registry import MCPRegistry; print('MCP registry import OK')"
 
   relay-test:
     name: Relay Integration Tests
@@ -140,3 +142,26 @@ jobs:
 
           asyncio.run(test())
           "
+
+  mcp-test:
+    name: MCP Tool Broker Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install websockets
+
+      - name: Run MCP registry unit tests
+        run: python -m unittest tests.test_mcp_registry -v
+
+      - name: Run MCP integration tests
+        run: python -m unittest tests.test_mcp_integration -v
