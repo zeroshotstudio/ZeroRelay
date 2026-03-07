@@ -101,7 +101,7 @@ graph LR
 | Requirement | Why | Check |
 |---|---|---|
 | **Tailscale** | Private mesh networking — keeps relay off public internet | `tailscale status` |
-| **Root access** | For systemd service install (not needed for testing) | `whoami` |
+| **sudo access** | For systemd service install only — services run as a dedicated `zerorelay` user | `sudo -v` |
 
 ### Per AI Backend
 
@@ -142,7 +142,7 @@ One cloud API (Anthropic or OpenAI) + Telegram. Costs a few cents per conversati
 
 ## Quick Start
 
-### Automated Setup (recommended)
+### Interactive Setup (recommended)
 
 ```bash
 git clone https://github.com/zeroshotstudio/ZeroRelay.git
@@ -150,7 +150,49 @@ cd ZeroRelay
 sudo python3 setup.py
 ```
 
-The setup script will walk you through choosing backends, configuring credentials, installing dependencies, and starting systemd services.
+The setup script walks you through choosing backends, configuring credentials, installing dependencies into an isolated virtualenv, and starting systemd services. It validates API keys, creates a dedicated `zerorelay` service user, and runs a health check after install.
+
+### Auto Setup
+
+Let the script detect what's installed and configure automatically:
+
+```bash
+# Export your API keys first
+export ANTHROPIC_API_KEY=sk-...
+export TELEGRAM_BOT_TOKEN=...
+export TELEGRAM_CHAT_ID=...
+
+# Auto-detect and go
+sudo python3 setup.py --auto
+```
+
+Auto mode detects installed tools (Ollama, Claude CLI, Docker), finds API keys in your environment, picks Tailscale if available, and auto-pulls missing Ollama models. Only prompts for truly missing required credentials.
+
+### Unattended / CI Setup
+
+Zero interactive prompts — everything from environment variables:
+
+```bash
+export ZERORELAY_URL=ws://10.0.0.1:8765
+export ANTHROPIC_API_KEY=sk-...
+export TELEGRAM_BOT_TOKEN=...
+export TELEGRAM_CHAT_ID=...
+
+sudo python3 setup.py --from-env
+```
+
+### AI-Assisted Setup
+
+Already have [Claude Code](https://docs.anthropic.com/en/docs/claude-code)? Let AI handle the setup for you:
+
+```bash
+git clone https://github.com/zeroshotstudio/ZeroRelay.git && cd ZeroRelay
+claude -p "Run sudo python3 setup.py and help me set up ZeroRelay.
+Detect what I have installed, recommend the best configuration,
+and walk me through getting any API keys I need."
+```
+
+Claude Code can drive the interactive installer, explain every choice, help you create Telegram bots, and troubleshoot issues — all from one command.
 
 ### Manual Setup
 
@@ -171,10 +213,12 @@ python3 bridges/chat/cli.py --relay ws://localhost:8765 --role operator
 
 Then type: `@claude what's the best way to handle rate limiting?`
 
-### Verify Install
+### Manage Your Install
 
 ```bash
-python3 setup.py --check
+python3 setup.py --check      # Verify health: services, venv, config
+python3 setup.py --upgrade    # Pull latest, update deps, restart services
+python3 setup.py --uninstall  # Stop services, clean up
 ```
 
 ## Architecture
@@ -378,6 +422,26 @@ The broker handles all failure scenarios gracefully:
 | OpenClaw | `bridges/ai/openclaw.py` | Gateway CLI | `@z` `@zee` | Docker + OpenClaw |
 
 The OpenAI bridge works with any compatible API — set `OPENAI_BASE_URL` for Together, Groq, etc.
+
+### OpenClaw Integration
+
+[OpenClaw](https://github.com/openclaw) lets you run ChatGPT as a programmable agent inside a Docker container. ZeroRelay's OpenClaw bridge connects it to the relay so your GPT agent can collaborate with Claude, Gemini, or any other model.
+
+**Features:**
+- **CLI mode** (default) — calls the agent via `docker exec` with `--expect-final`
+- **WebSocket mode** (experimental) — direct gateway connection via `OPENCLAW_MODE=websocket`
+- **Session management** — auto-resets sessions after 30 min idle (`SESSION_IDLE_RESET_SEC`)
+- **Outbox** — OpenClaw can initiate messages to the relay by writing to a file (`OPENCLAW_OUTBOX`), enabling proactive agent behavior (cron jobs, alerts, etc.)
+
+```bash
+# Minimal setup — just needs Docker and OpenClaw running
+OPENCLAW_TOKEN=your-token python3 bridges/ai/openclaw.py --relay ws://localhost:8765
+
+# With outbox for proactive messages
+OPENCLAW_OUTBOX=/opt/zerorelay/zee-outbox python3 bridges/ai/openclaw.py --relay ws://localhost:8765
+```
+
+The outbox is powerful: your OpenClaw agent can write to the outbox file from inside its container (via a volume mount), and the bridge picks it up and sends it to the relay. This means your agent can start conversations, send alerts, or report on cron jobs without waiting for someone to @-mention it.
 
 All bridges inherit MCP support from `BaseBridge`. Override `on_tool_call()` and call `register_tools()` in `on_connect()` to expose tools.
 
