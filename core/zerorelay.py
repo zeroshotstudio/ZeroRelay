@@ -32,7 +32,7 @@ import websockets
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("zerorelay")
 
-clients: dict[str, websockets.WebSocketServerProtocol] = {}
+clients: dict[str, object] = {}
 history: deque = deque(maxlen=200)
 
 # Roles: restrict via env or accept any

@@ -133,9 +133,6 @@ class AIBridge(BaseBridge):
         super().__init__(**kwargs)
         self.system_prompt = system_prompt
 
-    @abstractmethod
-    async def generate_response(self, prompt: str, context: str) -> str: pass
-
     async def on_message(self, sender: str, content: str, data: dict):
         # Only accept RESET from operator
         if content.strip() == "[RESET]":

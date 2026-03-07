@@ -6,7 +6,7 @@
 
 Mix and match AI models and chat platforms in real-time conversations with humans in the loop.
 
-[Prerequisites](#prerequisites) · [Quick Start](#quick-start) · [Architecture](#architecture) · [AI Bridges](#ai-bridges) · [Chat Bridges](#chat-bridges) · [Build Your Own](#build-your-own-bridge)
+[Prerequisites](#prerequisites) · [Quick Start](#quick-start) · [Architecture](#architecture) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -180,6 +180,7 @@ Three layers prevent infinite AI-to-AI response chains:
 Subclass `AIBridge` and implement `_sync_generate()`:
 
 ```python
+import asyncio
 from core.base_bridge import AIBridge
 
 class MyBridge(AIBridge):
@@ -226,6 +227,152 @@ OPENAI_API_KEY=... python3 bridges/ai/openai_api.py &
 GOOGLE_API_KEY=... python3 bridges/ai/gemini_api.py &
 DISCORD_BOT_TOKEN=... DISCORD_CHANNEL_ID=... python3 bridges/chat/discord.py
 ```
+
+## Security
+
+ZeroRelay is designed to run on private infrastructure. Multiple layers protect your relay:
+
+| Layer | Mechanism | Configuration |
+|-------|-----------|---------------|
+| **Network** | Tailscale mesh — relay never exposed to public internet | `--host $(tailscale ip -4)` |
+| **Authentication** | Token-based — all bridges must present matching token | `RELAY_TOKEN` env var |
+| **Rate limiting** | Per-role message throttling (20 msgs / 60s default) | `ZERORELAY_RATE_MAX`, `ZERORELAY_RATE_WINDOW` |
+| **Message size** | WebSocket frame limit (64KB) | Hardcoded in relay |
+| **Role locking** | One connection per role — prevents impersonation | Enforced by relay |
+| **Sender verification** | Telegram bridge verifies user ID | `TELEGRAM_USER_ID` |
+| **Operator commands** | Only the operator role can issue `[RESET]` | `ZERORELAY_OPERATOR` |
+| **Service isolation** | systemd hardening (ProtectSystem, PrivateTmp, NoNewPrivileges) | See `services/README.md` |
+
+**Important:** Always set `RELAY_TOKEN` in production. Without it, anyone who can reach the relay port can connect.
+
+## Environment Variables
+
+All configuration is via environment variables. See `config.example.env` for the full reference. Key variables:
+
+| Variable | Used By | Required | Description |
+|----------|---------|----------|-------------|
+| `RELAY_TOKEN` | All | Recommended | Shared secret for relay authentication |
+| `ZERORELAY_ROLES` | Relay | No | Comma-separated allowed roles (empty = any) |
+| `ZERORELAY_OPERATOR` | Bridges | No | Role that can issue `[RESET]` (default: `jimmy`) |
+| `ANTHROPIC_API_KEY` | Anthropic bridge | Yes | Anthropic API key |
+| `OPENAI_API_KEY` | OpenAI bridge | Yes | OpenAI API key |
+| `GOOGLE_API_KEY` | Gemini bridge | Yes | Google AI API key |
+| `TELEGRAM_BOT_TOKEN` | Telegram bridge | Yes | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | Telegram bridge | Yes | Target chat ID |
+| `TELEGRAM_USER_ID` | Telegram bridge | Recommended | Sender verification — rejects messages from other users |
+
+## Troubleshooting
+
+### Connection refused
+
+```
+ConnectionRefusedError: relay not available
+```
+
+The relay isn't running or the URL is wrong. Check:
+
+```bash
+# Is the relay running?
+systemctl status zerorelay        # if using systemd
+ss -tlnp | grep 8765              # check if port is listening
+
+# Is the URL correct?
+# Bridges must use the same host:port the relay is bound to
+python3 core/zerorelay.py --host 0.0.0.0 --port 8765   # listen on all interfaces
+```
+
+### Invalid or missing token
+
+```
+websockets.exceptions.ConnectionClosedError: 1008 Invalid or missing token
+```
+
+`RELAY_TOKEN` is set on the relay but bridges aren't sending it. Ensure all components share the same token via `.env` or environment:
+
+```bash
+# Check what the relay sees
+journalctl -u zerorelay -n 20     # look for "Auth: enabled"
+
+# Ensure bridges have it
+grep RELAY_TOKEN /opt/zerorelay/.env
+```
+
+### Role already connected
+
+```
+websockets.exceptions.ConnectionClosedError: 1008 Role 'claude' already connected
+```
+
+Another instance of the same bridge is still running. Stop it first:
+
+```bash
+systemctl stop zerorelay-claude
+# or find and kill the process
+ps aux | grep bridges/ai
+```
+
+### pip install fails on newer distros
+
+```
+error: externally-managed-environment
+```
+
+Python 3.12+ on Debian/Ubuntu blocks system-wide pip installs. Options:
+
+```bash
+# Option 1: Use a virtual environment (recommended)
+python3 -m venv /opt/zerorelay/venv
+source /opt/zerorelay/venv/bin/activate
+pip install websockets
+
+# Option 2: Force system install (less safe)
+pip install --break-system-packages websockets
+
+# Option 3: Use system packages
+sudo apt install python3-websockets
+```
+
+If using a venv, update your systemd `ExecStart` to use the venv Python:
+```ini
+ExecStart=/opt/zerorelay/venv/bin/python3 /opt/zerorelay/core/zerorelay.py --host ...
+```
+
+### Claude Code bridge: "session already in use"
+
+The Claude CLI session is locked by another process. The bridge handles this automatically by rotating to a new session, but if it persists:
+
+```bash
+# Reset the session
+rm /opt/zerorelay/claude-session-id
+systemctl restart zerorelay-claude
+
+# Or send /reset from your chat interface
+```
+
+### Telegram bot not responding
+
+1. Verify your bot token: `curl https://api.telegram.org/bot<TOKEN>/getMe`
+2. Verify chat ID: send a message to the bot, then check `curl https://api.telegram.org/bot<TOKEN>/getUpdates`
+3. Check `TELEGRAM_USER_ID` — if set incorrectly, all messages are rejected as unauthorized
+
+### Bridges reconnecting in a loop
+
+Normal behavior when the relay isn't reachable. Bridges use exponential backoff (3s, 6s, 12s, ... up to 60s). Once the relay starts, they connect automatically.
+
+### Ollama bridge: "is it running?"
+
+```bash
+# Check Ollama is running
+systemctl status ollama
+ollama list                       # verify model is pulled
+
+# Test directly
+curl http://localhost:11434/api/chat -d '{"model":"llama3.2","messages":[{"role":"user","content":"hi"}],"stream":false}'
+```
+
+### How do I add a new AI model?
+
+See [Build Your Own Bridge](#build-your-own-bridge). Implement `_sync_generate()` — the base class handles everything else.
 
 ## Origin
 
