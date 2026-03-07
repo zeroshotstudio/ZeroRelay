@@ -1,57 +1,81 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f0f23;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1a1a3e;stop-opacity:1" />
+    <linearGradient id="pulse" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0" />
+      <stop offset="40%" style="stop-color:#ffffff;stop-opacity:0.06" />
+      <stop offset="60%" style="stop-color:#ffffff;stop-opacity:0.06" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#6366f1" />
-      <stop offset="50%" style="stop-color:#8b5cf6" />
-      <stop offset="100%" style="stop-color:#a78bfa" />
-    </linearGradient>
-    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3" />
-      <stop offset="50%" style="stop-color:#8b5cf6;stop-opacity:0.5" />
-      <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:0.3" />
-    </linearGradient>
+    <clipPath id="textClip">
+      <rect x="0" y="0" width="900" height="280"/>
+    </clipPath>
   </defs>
-  <rect width="900" height="220" rx="12" fill="url(#bg)" />
-  <!-- Subtle grid -->
-  <g opacity="0.04" stroke="#fff">
-    <line x1="0" y1="44" x2="900" y2="44"/><line x1="0" y1="88" x2="900" y2="88"/>
-    <line x1="0" y1="132" x2="900" y2="132"/><line x1="0" y1="176" x2="900" y2="176"/>
-    <line x1="100" y1="0" x2="100" y2="220"/><line x1="200" y1="0" x2="200" y2="220"/>
-    <line x1="300" y1="0" x2="300" y2="220"/><line x1="400" y1="0" x2="400" y2="220"/>
-    <line x1="500" y1="0" x2="500" y2="220"/><line x1="600" y1="0" x2="600" y2="220"/>
-    <line x1="700" y1="0" x2="700" y2="220"/><line x1="800" y1="0" x2="800" y2="220"/>
+
+  <!-- Pure black background -->
+  <rect width="900" height="280" fill="#000000" />
+
+  <!-- Subtle scan line texture -->
+  <g opacity="0.03">
+    <line x1="0" y1="20" x2="900" y2="20" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="40" x2="900" y2="40" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="60" x2="900" y2="60" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="80" x2="900" y2="80" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="100" x2="900" y2="100" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="120" x2="900" y2="120" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="140" x2="900" y2="140" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="160" x2="900" y2="160" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="180" x2="900" y2="180" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="200" x2="900" y2="200" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="220" x2="900" y2="220" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="240" x2="900" y2="240" stroke="#fff" stroke-width="0.5"/>
+    <line x1="0" y1="260" x2="900" y2="260" stroke="#fff" stroke-width="0.5"/>
   </g>
-  <!-- Connection lines (relay pattern) -->
-  <g stroke="url(#glow)" stroke-width="2" fill="none" opacity="0.6">
-    <path d="M 150 110 Q 300 60 450 110" />
-    <path d="M 150 110 Q 300 160 450 110" />
-    <path d="M 450 110 Q 600 60 750 110" />
-    <path d="M 450 110 Q 600 160 750 110" />
+
+  <!-- Relay connection visualization — agents talking to each other -->
+  <g opacity="0.12">
+    <!-- Left cluster (chat agents) -->
+    <circle cx="120" cy="100" r="4" fill="#fff"/>
+    <circle cx="100" cy="140" r="4" fill="#fff"/>
+    <circle cx="130" cy="180" r="4" fill="#fff"/>
+
+    <!-- Right cluster (AI agents) -->
+    <circle cx="780" cy="90" r="4" fill="#fff"/>
+    <circle cx="800" cy="130" r="4" fill="#fff"/>
+    <circle cx="790" cy="170" r="4" fill="#fff"/>
+    <circle cx="770" cy="200" r="4" fill="#fff"/>
+
+    <!-- Connection lines through center -->
+    <line x1="120" y1="100" x2="780" y2="90" stroke="#fff" stroke-width="0.5" stroke-dasharray="4,8"/>
+    <line x1="100" y1="140" x2="800" y2="130" stroke="#fff" stroke-width="0.5" stroke-dasharray="4,8"/>
+    <line x1="130" y1="180" x2="790" y2="170" stroke="#fff" stroke-width="0.5" stroke-dasharray="4,8"/>
+    <line x1="120" y1="100" x2="790" y2="170" stroke="#fff" stroke-width="0.3" stroke-dasharray="2,12"/>
+    <line x1="100" y1="140" x2="770" y2="200" stroke="#fff" stroke-width="0.3" stroke-dasharray="2,12"/>
+    <line x1="130" y1="180" x2="780" y2="90" stroke="#fff" stroke-width="0.3" stroke-dasharray="2,12"/>
+
+    <!-- Cross-connections between AI agents -->
+    <line x1="780" y1="90" x2="800" y2="130" stroke="#fff" stroke-width="0.4" stroke-dasharray="3,6"/>
+    <line x1="800" y1="130" x2="790" y2="170" stroke="#fff" stroke-width="0.4" stroke-dasharray="3,6"/>
+    <line x1="790" y1="170" x2="770" y2="200" stroke="#fff" stroke-width="0.4" stroke-dasharray="3,6"/>
+    <line x1="780" y1="90" x2="770" y2="200" stroke="#fff" stroke-width="0.3" stroke-dasharray="2,10"/>
   </g>
-  <!-- Nodes -->
-  <g>
-    <!-- Left nodes (chat) -->
-    <circle cx="150" cy="80" r="6" fill="#22d3ee" opacity="0.8"/>
-    <circle cx="150" cy="110" r="6" fill="#22d3ee" opacity="0.8"/>
-    <circle cx="150" cy="140" r="6" fill="#22d3ee" opacity="0.8"/>
-    <!-- Center node (relay) -->
-    <circle cx="450" cy="110" r="12" fill="url(#accent)" />
-    <circle cx="450" cy="110" r="18" stroke="url(#accent)" stroke-width="1.5" fill="none" opacity="0.4"/>
-    <!-- Right nodes (AI) -->
-    <circle cx="750" cy="70" r="6" fill="#a78bfa" opacity="0.8"/>
-    <circle cx="750" cy="100" r="6" fill="#a78bfa" opacity="0.8"/>
-    <circle cx="750" cy="130" r="6" fill="#a78bfa" opacity="0.8"/>
-    <circle cx="750" cy="160" r="6" fill="#a78bfa" opacity="0.8"/>
-  </g>
-  <!-- Title -->
-  <text x="450" y="58" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#94a3b8" letter-spacing="4">ZEROSHOT STUDIO</text>
-  <text x="450" y="118" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="700" fill="url(#accent)">ZeroRelay</text>
-  <text x="450" y="152" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#94a3b8">Multi-agent AI relay chat</text>
-  <!-- Labels -->
-  <text x="150" y="175" text-anchor="middle" font-family="monospace" font-size="11" fill="#22d3ee" opacity="0.7">chat bridges</text>
-  <text x="750" y="190" text-anchor="middle" font-family="monospace" font-size="11" fill="#a78bfa" opacity="0.7">ai bridges</text>
+
+  <!-- Central hub glow -->
+  <circle cx="450" cy="140" r="60" fill="#fff" opacity="0.015"/>
+  <circle cx="450" cy="140" r="30" fill="#fff" opacity="0.02"/>
+
+  <!-- ZERØSHOT branding top -->
+  <text x="450" y="78" text-anchor="middle" font-family="'Arial Black', 'Helvetica Neue', Impact, sans-serif" font-size="16" font-weight="900" fill="#ffffff" letter-spacing="8" opacity="0.5">ZERØSHOT STUDIO</text>
+
+  <!-- ZERORELAY main title — bold, angular, white on black -->
+  <text x="450" y="155" text-anchor="middle" font-family="'Arial Black', 'Helvetica Neue', Impact, sans-serif" font-size="64" font-weight="900" fill="#ffffff" letter-spacing="3">ZERØRELAY</text>
+
+  <!-- Tagline -->
+  <text x="450" y="195" text-anchor="middle" font-family="'Courier New', monospace" font-size="14" fill="#ffffff" opacity="0.4" letter-spacing="2">AGENTS TALKING DIRECTLY TO AGENTS</text>
+
+  <!-- Accent line under title -->
+  <line x1="310" y1="168" x2="590" y2="168" stroke="#ffffff" stroke-width="1" opacity="0.08"/>
+
+  <!-- Version pill -->
+  <rect x="405" y="215" width="90" height="24" rx="12" fill="#ffffff" opacity="0.08"/>
+  <text x="450" y="232" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#ffffff" opacity="0.4">v1.0.0</text>
 </svg>

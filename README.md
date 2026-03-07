@@ -2,35 +2,69 @@
 
 <img src="assets/header.svg" alt="ZeroRelay" width="100%">
 
-<br/><br/>
+<br/>
 
-**Build your own multi-agent AI relay chat**
+**Drop your AI agents into a shared chat room. They talk directly to each other.**
 
-Mix and match AI models and chat platforms in real-time conversations with humans in the loop.
+No blackboards. No orchestrators. No polling. Just real-time WebSocket conversations between agents — with you in control.
 
 [![CI](https://github.com/zeroshotstudio/ZeroRelay/actions/workflows/ci.yml/badge.svg)](https://github.com/zeroshotstudio/ZeroRelay/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Prerequisites](#prerequisites) · [Quick Start](#quick-start) · [Architecture](#architecture) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [Architecture](#architecture) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
 
 </div>
 
 ---
 
-## What Is This?
+## Why ZeroRelay?
 
-ZeroRelay is a template for building **multi-party AI relay chats** — conversations where humans and AI agents (running different models, on different infrastructure) talk together through a unified WebSocket broker.
+Most multi-agent setups rely on **shared files**, **blackboards**, or **orchestrators** to pass messages between AI agents. That works, but it's slow, brittle, and indirect — agents are writing notes for each other instead of actually talking.
 
-Pick your AI backends. Pick your chat interface. Deploy. Talk.
+ZeroRelay takes a different approach: **put your agents in a group chat.**
+
+Every agent connects to a shared WebSocket relay. They see each other's messages in real-time. They @-mention each other to collaborate, delegate, or ask follow-up questions — the same way humans do in Slack or Discord. You sit in the chat too, steering the conversation.
+
+```
+You: @claude write a Python CLI for the new API
+Claude: Done. @gpt can you review this for edge cases?
+GPT: Found 3 issues. Here's a patch. @claude apply this.
+Claude: Applied. Tests pass. Ready for review.
+```
+
+This is **direct agent-to-agent communication** — no middleware, no file drops, no polling loops. Just conversation.
+
+### What makes this different
+
+| Traditional multi-agent | ZeroRelay |
+|---|---|
+| Agents write to shared files/blackboards | Agents talk in a live chat room |
+| Orchestrator decides who runs next | Agents @-mention whoever they need |
+| Polling for updates (seconds/minutes) | Real-time WebSocket (milliseconds) |
+| Rigid turn-taking pipelines | Natural conversation flow |
+| Single model vendor | Mix Claude + GPT + Gemini + Ollama freely |
+| Complex framework required | ~200 lines of Python, zero dependencies beyond `websockets` |
+
+### Key Features
+
+- **Direct agent-to-agent messaging** — agents @-mention and respond to each other in real-time
+- **Model-agnostic** — Claude, GPT, Gemini, Ollama, OpenClaw, or any API in the same chat
+- **Platform-agnostic** — Telegram, Discord, Slack, or terminal as your window into the conversation
+- **Human-in-the-loop** — you're in the chat too, steering and intervening when needed
+- **Loop prevention** — 3-layer safety system prevents infinite AI-to-AI spirals
+- **Private by default** — designed for Tailscale mesh, no public endpoints required
+- **Minimal** — pure Python, no framework, no database, no complex setup
 
 ```mermaid
 graph LR
-    You["You (Telegram)"] <-->|ws| R["ZeroRelay<br/>:8765"]
-    R <-->|ws| C["Claude<br/>(Anthropic)"]
-    R <-->|ws| G["GPT-4o<br/>(OpenAI)"]
-    R <-->|ws| Gem["Gemini<br/>(Google)"]
-    R <-->|ws| L["Llama<br/>(Ollama)"]
+    You["You"] <-->|ws| R["ZeroRelay\n:8765"]
+    R <-->|ws| C["Claude"]
+    R <-->|ws| G["GPT-4o"]
+    R <-->|ws| Gem["Gemini"]
+    R <-->|ws| L["Llama"]
+    C -.->|"@gpt review this"| G
+    G -.->|"@claude looks good"| C
 
     style R fill:#6366f1,stroke:#4f46e5,color:#fff
     style You fill:#22d3ee,stroke:#06b6d4,color:#000
@@ -39,15 +73,6 @@ graph LR
     style Gem fill:#a78bfa,stroke:#8b5cf6,color:#000
     style L fill:#a78bfa,stroke:#8b5cf6,color:#000
 ```
-
-### Key Features
-
-- **@-mention routing** — agents only respond when addressed, preventing infinite loops
-- **Model-agnostic** — Claude, GPT, Gemini, Ollama, OpenClaw, or any API
-- **Platform-agnostic** — Telegram, Discord, Slack, browser, or terminal
-- **Human-in-the-loop** — you're the conductor, not a spectator
-- **Private by default** — designed for Tailscale mesh, no public endpoints required
-- **Minimal** — pure Python, no framework, no database
 
 ## Prerequisites
 
@@ -187,23 +212,27 @@ Every bridge connects as a named **role**. Messages broadcast to all others. AI 
 
 ### Message Flow
 
+Agents communicate directly through the relay — including with each other:
+
 ```mermaid
 sequenceDiagram
-    participant Op as Operator (Telegram)
+    participant Op as You (Telegram)
     participant R as ZeroRelay Broker
-    participant C as Claude Bridge
-    participant G as GPT Bridge
+    participant C as Claude
+    participant G as GPT
 
-    Op->>R: @claude explain WebSockets
-    R->>C: broadcast (tagged)
-    R->>G: broadcast (not tagged, ignored)
-    C->>C: is_addressed() → true
-    G->>G: is_addressed() → false (skip)
-    C->>R: typing indicator
-    R->>Op: [Claude typing...]
-    C->>R: response
-    R->>Op: [Claude] WebSockets provide...
-    R->>G: broadcast (from claude, ignored)
+    Op->>R: @claude build a REST API
+    R->>C: broadcast (Claude is tagged)
+    R->>G: broadcast (GPT not tagged, ignores)
+    C->>R: Here's the API. @gpt review for security issues?
+    R->>G: broadcast (GPT is tagged)
+    R->>Op: broadcast (you see everything)
+    G->>R: Found 2 issues. @claude fix the auth header.
+    R->>C: broadcast (Claude is tagged)
+    R->>Op: broadcast (you see everything)
+    C->>R: Fixed. Ready for review.
+    R->>Op: broadcast
+    R->>G: broadcast
 ```
 
 ## AI Bridges
