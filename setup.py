@@ -209,36 +209,45 @@ def single_select(title, options):
 # ---------------------------------------------------------------------------
 
 AI_BACKENDS = {
-    "anthropic_api": {"label": "Claude (Anthropic API)", "bridge": "bridges/ai/anthropic_api.py",
+    # --- API Key auth (pay-per-token) ---
+    "anthropic_api": {"label": "Claude \u2014 API Key (pay-per-token)", "bridge": "bridges/ai/anthropic_api.py",
+        "auth_mode": "api_key",
         "pip": ["anthropic"], "prompts": [("ANTHROPIC_API_KEY", "Anthropic API key", "")],
         "defaults": {"ANTHROPIC_MODEL": "claude-sonnet-4-20250514", "ANTHROPIC_TAGS": "@claude,@c", "ANTHROPIC_ROLE": "claude"},
         "service": "zerorelay-claude", "tags": "@claude @c",
         "env_keys": ["ANTHROPIC_API_KEY"]},
-    "claude_code": {"label": "Claude Code CLI", "bridge": "bridges/ai/claude_code.py",
-        "pip": [], "prompts": [],
-        "defaults": {"CLAUDE_MODEL": "sonnet", "CLAUDE_TAGS": "@claude,@c", "CLAUDE_ROLE": "claude"},
-        "service": "zerorelay-claude", "tags": "@claude @c", "requires": "claude",
-        "env_keys": []},
-    "openai_api": {"label": "GPT (OpenAI API)", "bridge": "bridges/ai/openai_api.py",
+    "openai_api": {"label": "GPT \u2014 API Key (pay-per-token)", "bridge": "bridges/ai/openai_api.py",
+        "auth_mode": "api_key",
         "pip": ["openai"], "prompts": [("OPENAI_API_KEY", "OpenAI API key", "")],
         "defaults": {"OPENAI_MODEL": "gpt-4o", "OPENAI_TAGS": "@gpt,@g", "OPENAI_ROLE": "gpt"},
         "service": "zerorelay-gpt", "tags": "@gpt @g",
         "env_keys": ["OPENAI_API_KEY"]},
-    "gemini_api": {"label": "Gemini (Google)", "bridge": "bridges/ai/gemini_api.py",
+    "gemini_api": {"label": "Gemini \u2014 API Key (free tier / pay-per-token)", "bridge": "bridges/ai/gemini_api.py",
+        "auth_mode": "api_key",
         "pip": ["google-genai"], "prompts": [("GOOGLE_API_KEY", "Google API key", "")],
         "defaults": {"GEMINI_MODEL": "gemini-2.5-flash", "GEMINI_TAGS": "@gemini,@gem", "GEMINI_ROLE": "gemini"},
         "service": "zerorelay-gemini", "tags": "@gemini @gem",
         "env_keys": ["GOOGLE_API_KEY"]},
-    "ollama": {"label": "Ollama (local)", "bridge": "bridges/ai/ollama.py",
+    # --- Platform Subscription auth (flat monthly fee) ---
+    "claude_code": {"label": "Claude \u2014 Subscription (Claude Max/Pro via CLI)", "bridge": "bridges/ai/claude_code.py",
+        "auth_mode": "subscription",
+        "pip": [], "prompts": [],
+        "defaults": {"CLAUDE_MODEL": "sonnet", "CLAUDE_TAGS": "@claude,@c", "CLAUDE_ROLE": "claude"},
+        "service": "zerorelay-claude", "tags": "@claude @c", "requires": "claude",
+        "env_keys": []},
+    "openclaw": {"label": "GPT \u2014 Subscription (ChatGPT Plus via OpenClaw)", "bridge": "bridges/ai/openclaw.py",
+        "auth_mode": "subscription",
+        "pip": [], "prompts": [("OPENCLAW_TOKEN", "OpenClaw gateway token", ""), ("OPENCLAW_CONTAINER", "Docker container", "openclaw-openclaw-gateway-1")],
+        "defaults": {"OPENCLAW_AGENT_ID": "main", "OPENCLAW_SESSION": "agent:main:zerorelay", "OPENCLAW_GATEWAY": "ws://127.0.0.1:18789", "OPENCLAW_TAGS": "@gpt,@g", "OPENCLAW_ROLE": "gpt"},
+        "service": "zerorelay-gpt", "tags": "@gpt @g", "requires": "docker",
+        "env_keys": ["OPENCLAW_TOKEN"]},
+    # --- Local (free) ---
+    "ollama": {"label": "Ollama \u2014 Local (free, no account needed)", "bridge": "bridges/ai/ollama.py",
+        "auth_mode": "local",
         "pip": [], "prompts": [("OLLAMA_MODEL", "Ollama model", "llama3.2")],
         "defaults": {"OLLAMA_HOST": "http://localhost:11434", "OLLAMA_TAGS": "@ollama,@local", "OLLAMA_ROLE": "ollama"},
         "service": "zerorelay-ollama", "tags": "@ollama @local", "requires": "ollama",
         "env_keys": ["OLLAMA_MODEL"]},
-    "openclaw": {"label": "OpenClaw (GPT via Docker)", "bridge": "bridges/ai/openclaw.py",
-        "pip": [], "prompts": [("OPENCLAW_TOKEN", "OpenClaw gateway value", ""), ("OPENCLAW_CONTAINER", "Docker container", "openclaw-openclaw-gateway-1")],
-        "defaults": {"OPENCLAW_AGENT_ID": "main", "OPENCLAW_SESSION": "agent:main:zerorelay", "OPENCLAW_GATEWAY": "ws://127.0.0.1:18789", "OPENCLAW_TAGS": "@z,@zee", "OPENCLAW_ROLE": "zee"},
-        "service": "zerorelay-zee", "tags": "@z @zee", "requires": "docker",
-        "env_keys": ["OPENCLAW_TOKEN"]},
 }
 
 CHATS = {
@@ -632,6 +641,7 @@ def do_install(env, sel_ai, sel_chats, host, port, url, auto=False):
 def collect_env_interactive():
     """Full interactive mode (original flow)."""
     header("Step 1: Choose AI Backends")
+    p(f"  {DIM}API Key = pay-per-token | Subscription = flat monthly fee | Local = free{RESET}")
     sel_ai = multi_select("Which AI models?", {k: v["label"] for k, v in AI_BACKENDS.items()}, ["anthropic_api"])
     if not sel_ai: err("Need at least one AI backend."); return None
     for k in list(sel_ai):

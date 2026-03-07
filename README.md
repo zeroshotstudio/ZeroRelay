@@ -105,14 +105,18 @@ graph LR
 
 ### Per AI Backend
 
-| Backend | What You Need | Cost | Setup Time |
-|---|---|---|---|
-| **Ollama** | [Ollama](https://ollama.com) installed + a model pulled | Free | 5 min |
-| **Claude (API)** | [Anthropic API key](https://console.anthropic.com/) | Pay-per-use (~$3/1M tokens) | 2 min |
-| **GPT (API)** | [OpenAI API key](https://platform.openai.com/api-keys) | Pay-per-use (~$2.50/1M tokens) | 2 min |
-| **Gemini (API)** | [Google API key](https://aistudio.google.com/apikey) | Free tier (15 RPM) | 2 min |
-| **Claude Code CLI** | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed + Anthropic account | Pro sub ($20/mo) | 10 min |
-| **OpenClaw** | Docker + [OpenClaw](https://github.com/openclaw) running + ChatGPT subscription | Sub ($20/mo) | 30 min |
+Each AI model can connect via **API Key** (pay-per-token) or **Platform Subscription** (flat monthly fee using your existing account). Choose whichever suits your setup:
+
+| Backend | Auth Mode | What You Need | Cost | Setup Time |
+|---|---|---|---|---|
+| **Claude (API)** | API Key | [Anthropic API key](https://console.anthropic.com/) | Pay-per-use (~$3/1M tokens) | 2 min |
+| **Claude (Subscription)** | Subscription | [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) + Claude Max/Pro account | Max $100/mo or Pro $20/mo | 10 min |
+| **GPT (API)** | API Key | [OpenAI API key](https://platform.openai.com/api-keys) | Pay-per-use (~$2.50/1M tokens) | 2 min |
+| **GPT (Subscription)** | Subscription | Docker + [OpenClaw](https://github.com/nicedouble/OpenClaw) + ChatGPT Plus account | Plus $20/mo | 30 min |
+| **Gemini (API)** | API Key | [Google API key](https://aistudio.google.com/apikey) | Free tier (15 RPM) | 2 min |
+| **Ollama** | Local | [Ollama](https://ollama.com) installed + a model pulled | Free | 5 min |
+
+> **API Key vs Subscription:** API key bridges call the provider's API directly and bill per token. Subscription bridges use your existing platform login (Claude Max/Pro, ChatGPT Plus) through CLI tools, so you pay a flat monthly fee instead of per-token charges. Both modes produce identical results in the relay — choose based on your billing preference.
 
 ### Per Chat Interface
 
@@ -412,14 +416,16 @@ The broker handles all failure scenarios gracefully:
 
 ## AI Bridges
 
-| Bridge | File | Backend | Tags | Dependency |
-|--------|------|---------|------|------------|
-| Claude Code | `bridges/ai/claude_code.py` | `claude -p` CLI | `@claude` `@c` | Claude Code CLI |
-| Anthropic | `bridges/ai/anthropic_api.py` | Messages API | `@claude` `@c` | `anthropic` |
-| OpenAI | `bridges/ai/openai_api.py` | Chat Completions | `@gpt` `@g` | `openai` |
-| Gemini | `bridges/ai/gemini_api.py` | Gemini API | `@gemini` `@gem` | `google-genai` |
-| Ollama | `bridges/ai/ollama.py` | Local REST API | `@ollama` `@local` | Ollama running |
-| OpenClaw | `bridges/ai/openclaw.py` | Gateway CLI | `@z` `@zee` | Docker + OpenClaw |
+| Bridge | File | Auth Mode | Backend | Tags | Dependency |
+|--------|------|-----------|---------|------|------------|
+| Claude (API) | `bridges/ai/anthropic_api.py` | API Key | Messages API | `@claude` `@c` | `anthropic` |
+| Claude (Sub) | `bridges/ai/claude_code.py` | Subscription | `claude -p` CLI | `@claude` `@c` | Claude Code CLI |
+| GPT (API) | `bridges/ai/openai_api.py` | API Key | Chat Completions | `@gpt` `@g` | `openai` |
+| GPT (Sub) | `bridges/ai/openclaw.py` | Subscription | OpenClaw Gateway | `@gpt` `@g` | Docker + OpenClaw |
+| Gemini | `bridges/ai/gemini_api.py` | API Key | Gemini API | `@gemini` `@gem` | `google-genai` |
+| Ollama | `bridges/ai/ollama.py` | Local | Local REST API | `@ollama` `@local` | Ollama running |
+
+**API Key** bridges use provider API keys and bill per token. **Subscription** bridges use your existing platform subscription (Claude Max/Pro, ChatGPT Plus) via CLI tools — no API key needed.
 
 The OpenAI bridge works with any compatible API — set `OPENAI_BASE_URL` for Together, Groq, etc.
 
