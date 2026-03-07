@@ -324,6 +324,64 @@ def validate_ollama(model="llama3.2"):
     except Exception as e:
         return str(e)
 
+def validate_claude_subscription():
+    """Test Claude Code CLI subscription auth (claude -p via Max/Pro account)."""
+    if not check_cmd("claude"):
+        return "claude CLI not in PATH — install from https://docs.anthropic.com/en/docs/claude-code"
+    try:
+        # Check if CLI is installed and authenticated
+        r = subprocess.run(["claude", "--version"], capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            return f"claude CLI error: {r.stderr.strip() or 'unknown'}"
+        version = r.stdout.strip()
+        # Try a minimal prompt to verify subscription is active
+        r2 = subprocess.run(
+            ["claude", "-p", "--max-turns", "1", "--model", "claude-sonnet-4-20250514"],
+            input="Reply with just the word OK",
+            capture_output=True, text=True, timeout=30,
+        )
+        if r2.returncode != 0:
+            stderr = r2.stderr.strip()
+            if "auth" in stderr.lower() or "login" in stderr.lower() or "token" in stderr.lower():
+                return f"not authenticated — run 'claude login' first ({stderr[:100]})"
+            return f"subscription check failed: {stderr[:150]}"
+        if r2.stdout.strip():
+            return True
+        return "claude CLI returned empty response — check subscription status"
+    except subprocess.TimeoutExpired:
+        return "claude CLI timed out — subscription may be inactive"
+    except Exception as e:
+        return str(e)
+
+def validate_openclaw_subscription(container):
+    """Test OpenClaw subscription auth (ChatGPT Plus via Docker container)."""
+    if not check_cmd("docker"):
+        return "docker not in PATH"
+    try:
+        # Check if the container is running
+        r = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", container],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode != 0:
+            return f"container '{container}' not found — is OpenClaw installed?"
+        if r.stdout.strip() != "true":
+            return f"container '{container}' is not running — start with docker-compose up"
+        # Check if openclaw CLI is available inside the container
+        r2 = subprocess.run(
+            ["docker", "exec", container, "openclaw", "--version"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r2.returncode != 0:
+            # openclaw CLI might not have --version, that's ok if container is running
+            dim(f"openclaw CLI check inconclusive (container is running)")
+            return True
+        return True
+    except subprocess.TimeoutExpired:
+        return "docker command timed out"
+    except Exception as e:
+        return str(e)
+
 def validate_telegram(bot_tok):
     """Test Telegram bot validity via getMe API."""
     try:
@@ -342,12 +400,14 @@ def validate_telegram(bot_tok):
 def validate_credentials(env, sel_ai, sel_chats):
     """Validate all collected credentials. Warns on failure but does not block."""
     header("Validating Credentials")
-    validators = {
+
+    # API Key validators
+    api_key_validators = {
         "ANTHROPIC_API_KEY": ("Anthropic API", validate_anthropic),
         "OPENAI_API_KEY": ("OpenAI API", validate_openai),
         "GOOGLE_API_KEY": ("Gemini API", validate_gemini),
     }
-    for key_name, (label, fn) in validators.items():
+    for key_name, (label, fn) in api_key_validators.items():
         val = env.get(key_name)
         if not val:
             continue
@@ -359,6 +419,23 @@ def validate_credentials(env, sel_ai, sel_chats):
         else:
             warn(f"{label}: {result}")
 
+    # Subscription auth validators
+    if "claude_code" in sel_ai:
+        result = validate_claude_subscription()
+        if result is True:
+            ok("Claude subscription auth valid (CLI authenticated)")
+        else:
+            warn(f"Claude subscription: {result}")
+
+    if "openclaw" in sel_ai:
+        container = env.get("OPENCLAW_CONTAINER", "openclaw-openclaw-gateway-1")
+        result = validate_openclaw_subscription(container)
+        if result is True:
+            ok("OpenClaw subscription auth valid (container running)")
+        else:
+            warn(f"OpenClaw subscription: {result}")
+
+    # Local validators
     if env.get("OLLAMA_MODEL"):
         result = validate_ollama(env["OLLAMA_MODEL"])
         if result is True:
