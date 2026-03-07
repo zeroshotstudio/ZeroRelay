@@ -2,8 +2,8 @@
 """ZeroRelay bridge: Anthropic API. Env: ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_TAGS, ANTHROPIC_ROLE"""
 
 import asyncio, logging, os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
-from base_bridge import AIBridge
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.base_bridge import AIBridge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")

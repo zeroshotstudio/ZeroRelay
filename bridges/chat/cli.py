@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """ZeroRelay bridge: CLI Terminal. Simple terminal chat for testing.
-Usage: python3 cli.py --relay ws://localhost:8765 --role jimmy
+Usage: python3 cli.py --relay ws://localhost:8765 --role operator
 Commands: /quit, /reset, /status, /help"""
 
 import asyncio, json, logging, os, sys

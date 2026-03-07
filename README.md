@@ -118,7 +118,7 @@ python3 core/zerorelay.py --host 0.0.0.0 &
 ANTHROPIC_API_KEY=sk-... python3 bridges/ai/anthropic_api.py --relay ws://localhost:8765 &
 
 # Start a chat interface
-python3 bridges/chat/cli.py --relay ws://localhost:8765 --role jimmy
+python3 bridges/chat/cli.py --relay ws://localhost:8765 --role operator
 ```
 
 Then type: `@claude what's the best way to handle rate limiting?`
@@ -217,7 +217,7 @@ For private networking, bind to Tailscale: `python3 core/zerorelay.py --host $(t
 
 **Local Ollama + Terminal** (zero API keys):
 ```bash
-python3 core/zerorelay.py & python3 bridges/ai/ollama.py & python3 bridges/chat/cli.py --role jimmy
+python3 core/zerorelay.py & python3 bridges/ai/ollama.py & python3 bridges/chat/cli.py --role operator
 ```
 
 **Three Models + Discord**:
@@ -253,7 +253,7 @@ All configuration is via environment variables. See `config.example.env` for the
 |----------|---------|----------|-------------|
 | `RELAY_TOKEN` | All | Recommended | Shared secret for relay authentication |
 | `ZERORELAY_ROLES` | Relay | No | Comma-separated allowed roles (empty = any) |
-| `ZERORELAY_OPERATOR` | Bridges | No | Role that can issue `[RESET]` (default: `jimmy`) |
+| `ZERORELAY_OPERATOR` | Bridges | No | Role that can issue `[RESET]` (default: `operator`) |
 | `ANTHROPIC_API_KEY` | Anthropic bridge | Yes | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI bridge | Yes | OpenAI API key |
 | `GOOGLE_API_KEY` | Gemini bridge | Yes | Google AI API key |

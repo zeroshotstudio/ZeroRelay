@@ -7,8 +7,8 @@ Env: CLAUDE_MODEL, CLAUDE_TAGS, CLAUDE_ROLE, CLAUDE_TIMEOUT, CLAUDE_ADD_DIR"""
 
 import asyncio, json, logging, os, subprocess, sys, uuid
 from datetime import datetime
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
-from base_bridge import AIBridge
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.base_bridge import AIBridge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("claude-code-bridge")

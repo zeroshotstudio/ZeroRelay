@@ -3,8 +3,8 @@
 Env: OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TAGS, OLLAMA_ROLE"""
 
 import asyncio, json, logging, os, sys, urllib.request, urllib.error
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
-from base_bridge import AIBridge
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.base_bridge import AIBridge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")

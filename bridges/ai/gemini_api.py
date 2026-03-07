@@ -2,8 +2,8 @@
 """ZeroRelay bridge: Google Gemini API. Env: GOOGLE_API_KEY (or GEMINI_API_KEY), GEMINI_MODEL, GEMINI_TAGS"""
 
 import asyncio, logging, os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
-from base_bridge import AIBridge
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.base_bridge import AIBridge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")

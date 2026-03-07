@@ -33,7 +33,7 @@ class BaseBridge(ABC):
         self.transcript: list[dict] = []
         self.ws: websockets.WebSocketClientProtocol | None = None
         self.relay_token = os.environ.get("RELAY_TOKEN", "")
-        self.operator_role = os.environ.get("ZERORELAY_OPERATOR", "jimmy")
+        self.operator_role = os.environ.get("ZERORELAY_OPERATOR", "operator")
 
         if tags:
             escaped = [re.escape(t.lstrip("@")) for t in tags]

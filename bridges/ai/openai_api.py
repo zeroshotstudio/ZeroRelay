@@ -3,8 +3,8 @@
 Env: OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, OPENAI_TAGS, OPENAI_ROLE"""
 
 import asyncio, logging, os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
-from base_bridge import AIBridge
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.base_bridge import AIBridge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")

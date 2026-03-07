@@ -4,8 +4,8 @@ Env: OPENCLAW_CONTAINER, OPENCLAW_AGENT_ID, OPENCLAW_TOKEN, OPENCLAW_TAGS, OPENC
 
 import asyncio, json, logging, os, subprocess, sys, uuid
 from datetime import datetime
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "core"))
-from base_bridge import AIBridge
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.base_bridge import AIBridge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("openclaw-bridge")

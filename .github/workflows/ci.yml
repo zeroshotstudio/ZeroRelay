@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Syntax & Import Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install websockets
+
+      - name: Check Python syntax (all .py files)
+        run: python -m py_compile core/zerorelay.py && python -m py_compile core/base_bridge.py
+
+      - name: Check bridge syntax
+        run: |
+          for f in bridges/ai/anthropic_api.py bridges/ai/openai_api.py bridges/ai/gemini_api.py bridges/ai/ollama.py bridges/ai/openclaw.py bridges/ai/claude_code.py bridges/chat/cli.py; do
+            python -m py_compile "$f"
+          done
+
+      - name: Verify package imports
+        run: python -c "from core.base_bridge import AIBridge, BaseBridge; print('Package imports OK')"
+
+  relay-test:
+    name: Relay Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install websockets
+
+      - name: Start relay
+        run: |
+          python core/zerorelay.py --host 127.0.0.1 --port 8765 &
+          sleep 2
+
+      - name: Test basic connection
+        run: |
+          python -c "
+          import asyncio, json, websockets
+
+          async def test():
+              async with websockets.connect('ws://127.0.0.1:8765?role=test_client') as ws:
+                  raw = await asyncio.wait_for(ws.recv(), timeout=5)
+                  data = json.loads(raw)
+                  assert data['type'] == 'connected', f'Expected connected, got {data[\"type\"]}'
+                  assert data['role'] == 'test_client'
+                  print('Connection test: PASS')
+
+          asyncio.run(test())
+          "
+
+      - name: Test message broadcast
+        run: |
+          python -c "
+          import asyncio, json, websockets
+
+          async def test():
+              async with websockets.connect('ws://127.0.0.1:8765?role=sender') as ws1:
+                  await ws1.recv()  # connected msg
+                  async with websockets.connect('ws://127.0.0.1:8765?role=receiver') as ws2:
+                      await ws2.recv()  # connected msg
+                      await ws2.recv()  # system msg (sender joined)
+                      await ws1.recv()  # system msg (receiver joined)
+                      await ws1.send(json.dumps({'content': 'hello'}))
+                      raw = await asyncio.wait_for(ws2.recv(), timeout=5)
+                      data = json.loads(raw)
+                      assert data['type'] == 'message'
+                      assert data['content'] == 'hello'
+                      assert data['from'] == 'sender'
+                      print('Broadcast test: PASS')
+
+          asyncio.run(test())
+          "
+
+      - name: Test token authentication
+        run: |
+          RELAY_TOKEN=test-secret python core/zerorelay.py --host 127.0.0.1 --port 8766 &
+          sleep 2
+          python -c "
+          import asyncio, websockets
+
+          async def test():
+              # Should reject without token
+              try:
+                  async with websockets.connect('ws://127.0.0.1:8766?role=notoken') as ws:
+                      await ws.recv()
+                      print('FAIL: Should have been rejected')
+                      exit(1)
+              except websockets.exceptions.ConnectionClosed:
+                  print('Token rejection test: PASS')
+
+              # Should accept with correct token
+              async with websockets.connect('ws://127.0.0.1:8766?role=authed&token=test-secret') as ws:
+                  raw = await asyncio.wait_for(ws.recv(), timeout=5)
+                  import json
+                  data = json.loads(raw)
+                  assert data['type'] == 'connected'
+                  print('Token acceptance test: PASS')
+
+          asyncio.run(test())
+          "
+
+      - name: Test role uniqueness
+        run: |
+          python -c "
+          import asyncio, json, websockets
+
+          async def test():
+              async with websockets.connect('ws://127.0.0.1:8765?role=unique_role') as ws1:
+                  await ws1.recv()
+                  try:
+                      async with websockets.connect('ws://127.0.0.1:8765?role=unique_role') as ws2:
+                          await ws2.recv()
+                          print('FAIL: Duplicate role should be rejected')
+                          exit(1)
+                  except websockets.exceptions.ConnectionClosed:
+                      print('Role uniqueness test: PASS')
+
+          asyncio.run(test())
+          "
