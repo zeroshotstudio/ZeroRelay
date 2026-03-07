@@ -13,6 +13,7 @@ Features:
   - Max WebSocket message size (64KB)
   - Content not logged at INFO level
   - MCP Tool Broker: agents register tools, call each other's tools via JSON
+  - Tool namespacing: tools are stored as {owner}/{tool_name}
 
 Usage:
   python3 zerorelay.py --host 0.0.0.0 --port 8765
@@ -23,10 +24,13 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from collections import deque
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 import websockets
 
@@ -42,6 +46,11 @@ history: deque = deque(maxlen=200)
 mcp_registry = MCPRegistry()
 mcp_pending: dict[str, dict] = {}  # call_id -> {caller, tool_name, owner, time}
 MCP_CALL_TIMEOUT = int(os.environ.get("ZERORELAY_MCP_TIMEOUT", "30"))
+
+# MCP rate limiting (separate from chat rate limits)
+MCP_RATE_LIMIT_MAX = int(os.environ.get("ZERORELAY_MCP_RATE_MAX", "60"))
+MCP_RATE_LIMIT_WINDOW = int(os.environ.get("ZERORELAY_MCP_RATE_WINDOW", "60"))
+mcp_rate_limits: dict[str, deque] = {}
 
 # Roles: restrict via env or accept any
 VALID_ROLES: set[str] | None = None
@@ -83,6 +92,20 @@ def check_rate_limit(role: str) -> bool:
     while timestamps and now - timestamps[0] > RATE_LIMIT_WINDOW:
         timestamps.popleft()
     if len(timestamps) >= RATE_LIMIT_MAX:
+        return True
+    timestamps.append(now)
+    return False
+
+
+def check_mcp_rate_limit(role: str) -> bool:
+    """Return True if MCP message should be dropped."""
+    now = time.monotonic()
+    if role not in mcp_rate_limits:
+        mcp_rate_limits[role] = deque(maxlen=MCP_RATE_LIMIT_MAX)
+    timestamps = mcp_rate_limits[role]
+    while timestamps and now - timestamps[0] > MCP_RATE_LIMIT_WINDOW:
+        timestamps.popleft()
+    if len(timestamps) >= MCP_RATE_LIMIT_MAX:
         return True
     timestamps.append(now)
     return False
@@ -140,6 +163,12 @@ async def handler(websocket):
             # --- MCP Tool Broker messages ---
             if msg_type == "mcp_register":
                 tools = data.get("tools", [])
+                if not isinstance(tools, list):
+                    log.warning(f"[MCP] {role}: mcp_register 'tools' is not a list, ignoring")
+                    continue
+                if check_mcp_rate_limit(role):
+                    log.warning(f"[MCP] Rate limit: {role} (register)")
+                    continue
                 registered = mcp_registry.register(role, tools)
                 log.info(f"[MCP] {role} registered {len(registered)} tools: {registered}")
                 update = json.dumps({"type": "mcp_tools_updated",
@@ -154,18 +183,55 @@ async def handler(websocket):
                 call_id = data.get("call_id")
                 tool_name = data.get("tool_name")
                 arguments = data.get("arguments", {})
-                owner = mcp_registry.resolve(tool_name)
                 now_iso = datetime.now().isoformat()
+
+                # Input validation
+                if not isinstance(call_id, str) or not call_id:
+                    await websocket.send(json.dumps({"type": "mcp_tool_result",
+                        "call_id": call_id, "error": "Invalid or missing 'call_id'",
+                        "timestamp": now_iso}))
+                    continue
+                if not isinstance(tool_name, str) or not tool_name:
+                    await websocket.send(json.dumps({"type": "mcp_tool_result",
+                        "call_id": call_id, "error": "Invalid or missing 'tool_name'",
+                        "timestamp": now_iso}))
+                    continue
+                if not isinstance(arguments, dict):
+                    arguments = {}
+
+                if check_mcp_rate_limit(role):
+                    log.warning(f"[MCP] Rate limit: {role} (tool_call)")
+                    await websocket.send(json.dumps({"type": "mcp_tool_result",
+                        "call_id": call_id, "tool_name": tool_name,
+                        "error": "MCP rate limit exceeded",
+                        "timestamp": now_iso}))
+                    continue
+
+                owner = mcp_registry.resolve(tool_name)
+
+                # Self-call prevention
+                if owner == role:
+                    await websocket.send(json.dumps({"type": "mcp_tool_result",
+                        "call_id": call_id, "tool_name": tool_name,
+                        "error": "Cannot call your own tool",
+                        "timestamp": now_iso}))
+                    continue
+
                 if not owner or owner not in clients:
                     await websocket.send(json.dumps({"type": "mcp_tool_result",
                         "call_id": call_id, "tool_name": tool_name,
                         "error": f"Tool '{tool_name}' not available",
                         "timestamp": now_iso}))
                     continue
+
+                # Parse namespaced name to get plain tool name for the owner
+                parsed = MCPRegistry.parse_name(tool_name)
+                plain_name = parsed[1] if parsed else tool_name
+
                 mcp_pending[call_id] = {"caller": role, "tool_name": tool_name,
                                         "owner": owner, "time": time.monotonic()}
                 forward = {"type": "mcp_tool_call", "call_id": call_id,
-                           "caller": role, "tool_name": tool_name,
+                           "caller": role, "tool_name": plain_name,
                            "arguments": arguments, "timestamp": now_iso}
                 try:
                     await clients[owner].send(json.dumps(forward))
@@ -180,9 +246,20 @@ async def handler(websocket):
 
             if msg_type == "mcp_tool_result":
                 call_id = data.get("call_id")
+                if not isinstance(call_id, str) or not call_id:
+                    log.warning(f"[MCP] {role}: mcp_tool_result with invalid call_id")
+                    continue
+                if check_mcp_rate_limit(role):
+                    log.warning(f"[MCP] Rate limit: {role} (tool_result)")
+                    continue
                 pending = mcp_pending.pop(call_id, None)
                 if not pending:
                     log.warning(f"[MCP] Unknown call_id from {role}: {call_id}")
+                    continue
+                # Sender verification: only the tool owner can send results
+                if role != pending["owner"]:
+                    log.warning(f"[MCP] {role} sent result for call owned by {pending['owner']}, dropping")
+                    mcp_pending[call_id] = pending  # restore
                     continue
                 caller_role = pending["caller"]
                 if caller_role not in clients:
@@ -224,6 +301,9 @@ async def handler(websocket):
         log.info(f"[-] {role} disconnected")
     finally:
         clients.pop(role, None)
+        # Clean up rate limits
+        rate_limits.pop(role, None)
+        mcp_rate_limits.pop(role, None)
         # MCP cleanup: unregister tools and notify pending callers
         if mcp_registry.unregister_role(role):
             update = json.dumps({"type": "mcp_tools_updated",
@@ -279,7 +359,7 @@ async def main():
     roles_info = f"Restricted: {', '.join(sorted(VALID_ROLES))}" if VALID_ROLES else "Any role"
     log.info(f"ZeroRelay on ws://{args.host}:{args.port}")
     log.info(f"Auth: {'enabled' if RELAY_TOKEN else 'DISABLED'}")
-    log.info(f"MCP: timeout={MCP_CALL_TIMEOUT}s")
+    log.info(f"MCP: timeout={MCP_CALL_TIMEOUT}s, rate={MCP_RATE_LIMIT_MAX}/{MCP_RATE_LIMIT_WINDOW}s")
     log.info(roles_info)
     asyncio.create_task(mcp_timeout_sweep())
     async with websockets.serve(handler, args.host, args.port, max_size=65536):

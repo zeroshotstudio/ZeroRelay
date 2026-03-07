@@ -95,7 +95,7 @@ class BaseBridge(ABC):
         call_id = str(uuid.uuid4())
         msg = {"type": "mcp_tool_call", "call_id": call_id,
                "tool_name": tool_name, "arguments": arguments}
-        fut = asyncio.get_event_loop().create_future()
+        fut = asyncio.get_running_loop().create_future()
         self._mcp_pending[call_id] = fut
         await self.ws.send(json.dumps(msg))
         try:
@@ -184,6 +184,11 @@ class BaseBridge(ABC):
             except Exception as e:
                 log.error(f"Bridge error: {e}. Reconnecting in {backoff}s...")
             self.ws = None
+            # Cancel pending MCP futures so callers don't hang
+            for cid, fut in self._mcp_pending.items():
+                if not fut.done():
+                    fut.set_result({"error": "Disconnected from relay"})
+            self._mcp_pending.clear()
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
 

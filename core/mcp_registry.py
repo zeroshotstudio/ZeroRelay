@@ -3,49 +3,63 @@
 MCP Tool Registry for ZeroRelay.
 
 Maintains a mapping of tool names to their owning agents (roles).
-Agents register tools on connect; the registry cleans up on disconnect.
+Tools are stored with namespaced keys ({owner}/{tool_name}) to prevent
+collisions. Agents register with plain names; the registry namespaces them.
 """
 
 import logging
 
 log = logging.getLogger("zerorelay.mcp")
 
+SEPARATOR = "/"
+
 
 class MCPRegistry:
-    """In-memory registry mapping tool_name → owner role."""
+    """In-memory registry mapping namespaced tool names to owner roles."""
 
     def __init__(self):
-        # tool_name -> {"owner": str, "description": str, "input_schema": dict}
+        # "owner/tool_name" -> {"owner": str, "description": str, "input_schema": dict}
         self._tools: dict[str, dict] = {}
-        # role -> set of tool_names (for fast cleanup on disconnect)
+        # role -> set of namespaced tool_names (for fast cleanup on disconnect)
         self._role_tools: dict[str, set[str]] = {}
 
-    def register(self, role: str, tools: list[dict]) -> list[str]:
-        """Register tools for a role. Returns list of successfully registered tool names.
+    @staticmethod
+    def make_name(owner: str, tool_name: str) -> str:
+        """Build a namespaced tool name: owner/tool_name."""
+        return f"{owner}{SEPARATOR}{tool_name}"
 
-        Rejects tools missing a 'name' field and tools whose name is already
-        owned by a different role. Same-owner re-registration overwrites
-        (idempotent for reconnect).
+    @staticmethod
+    def parse_name(namespaced: str) -> tuple[str, str] | None:
+        """Split a namespaced name into (owner, tool_name), or None if invalid."""
+        if SEPARATOR not in namespaced:
+            return None
+        owner, _, tool_name = namespaced.partition(SEPARATOR)
+        if not owner or not tool_name:
+            return None
+        return (owner, tool_name)
+
+    def register(self, role: str, tools: list[dict]) -> list[str]:
+        """Register tools for a role. Returns list of namespaced tool names.
+
+        Tools are stored under namespaced keys ({role}/{name}), so different
+        roles can register tools with the same plain name without collision.
+        Same-owner re-registration overwrites (idempotent for reconnect).
         """
         registered = []
         for tool in tools:
             name = tool.get("name")
-            if not name:
-                log.warning(f"[MCP] {role}: skipping tool with missing 'name'")
+            if not name or not isinstance(name, str):
+                log.warning(f"[MCP] {role}: skipping tool with missing/invalid 'name'")
                 continue
 
-            existing = self._tools.get(name)
-            if existing and existing["owner"] != role:
-                log.warning(f"[MCP] {role}: tool '{name}' already registered by {existing['owner']}, skipping")
-                continue
-
-            self._tools[name] = {
+            ns_name = self.make_name(role, name)
+            self._tools[ns_name] = {
                 "owner": role,
                 "description": tool.get("description", ""),
                 "input_schema": tool.get("input_schema", {}),
             }
-            self._role_tools.setdefault(role, set()).add(name)
-            registered.append(name)
+            self._role_tools.setdefault(role, set()).add(ns_name)
+            registered.append(ns_name)
 
         return registered
 
@@ -59,22 +73,22 @@ class MCPRegistry:
         return bool(tool_names)
 
     def resolve(self, tool_name: str) -> str | None:
-        """Return the owner role for a tool, or None if not registered."""
+        """Return the owner role for a namespaced tool, or None if not registered."""
         entry = self._tools.get(tool_name)
         return entry["owner"] if entry else None
 
     def get_tools(self, exclude_role: str | None = None) -> list[dict]:
-        """Return all registered tools with owner info.
+        """Return all registered tools with owner info and namespaced names.
 
         Optionally exclude tools owned by exclude_role (an agent doesn't
         need its own tools in the remote list).
         """
         result = []
-        for name, entry in self._tools.items():
+        for ns_name, entry in self._tools.items():
             if exclude_role and entry["owner"] == exclude_role:
                 continue
             result.append({
-                "name": name,
+                "name": ns_name,
                 "description": entry["description"],
                 "input_schema": entry["input_schema"],
                 "owner": entry["owner"],

@@ -20,6 +20,7 @@ def reset_relay_state():
     zerorelay.mcp_registry = type(zerorelay.mcp_registry)()
     zerorelay.mcp_pending.clear()
     zerorelay.rate_limits.clear()
+    zerorelay.mcp_rate_limits.clear()
 
 
 async def connect_client(port, role):
@@ -73,14 +74,24 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
         self.clients.append(ws)
         return ws, connected_data
 
+    async def _register_tool(self, ws_provider, ws_others, name="greet", desc="Greet someone"):
+        """Helper to register a tool and drain updates from all clients."""
+        await ws_provider.send(json.dumps({
+            "type": "mcp_register",
+            "tools": [{"name": name, "description": desc}]
+        }))
+        await recv_msg(ws_provider)  # provider gets update
+        for ws in ws_others:
+            await recv_msg(ws)  # others get update
+
+    # --- Original tests (updated for namespacing) ---
+
     async def test_tool_registration_broadcasts_update(self):
         """When a provider registers tools, all clients get mcp_tools_updated."""
         ws_provider, _ = await self._connect("provider")
         ws_user, _ = await self._connect("user")
-        # Drain the "user joined" system message from provider
         await drain_system_msgs(ws_provider)
 
-        # Provider registers a tool
         await ws_provider.send(json.dumps({
             "type": "mcp_register",
             "tools": [{"name": "echo", "description": "Echo back input",
@@ -88,12 +99,11 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
                             "properties": {"text": {"type": "string"}}}}]
         }))
 
-        # Both should receive mcp_tools_updated
         for ws in [ws_provider, ws_user]:
             msg = await recv_msg(ws)
             self.assertEqual(msg["type"], "mcp_tools_updated")
             self.assertEqual(len(msg["available_tools"]), 1)
-            self.assertEqual(msg["available_tools"][0]["name"], "echo")
+            self.assertEqual(msg["available_tools"][0]["name"], "provider/echo")
             self.assertEqual(msg["available_tools"][0]["owner"], "provider")
 
     async def test_connected_includes_available_tools(self):
@@ -103,68 +113,50 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
             "type": "mcp_register",
             "tools": [{"name": "my_tool", "description": "A tool"}]
         }))
-        # Drain the update for provider itself
         await recv_msg(ws_provider)
 
-        # New client connects and should see available_tools
         ws_user, connected_data = await self._connect("user")
         self.assertIn("available_tools", connected_data)
         self.assertEqual(len(connected_data["available_tools"]), 1)
-        self.assertEqual(connected_data["available_tools"][0]["name"], "my_tool")
+        self.assertEqual(connected_data["available_tools"][0]["name"], "provider/my_tool")
 
     async def test_tool_call_routes_to_owner(self):
-        """A tool call from user is forwarded to the tool owner."""
+        """A tool call from user is forwarded to the tool owner with plain name."""
         ws_provider, _ = await self._connect("provider")
         ws_user, _ = await self._connect("user")
         await drain_system_msgs(ws_provider)
+        await self._register_tool(ws_provider, [ws_user])
 
-        # Register tool
-        await ws_provider.send(json.dumps({
-            "type": "mcp_register",
-            "tools": [{"name": "greet", "description": "Greet someone"}]
-        }))
-        # Drain updates
-        await recv_msg(ws_provider)
-        await recv_msg(ws_user)
-
-        # User calls the tool
+        # User calls with namespaced name
         await ws_user.send(json.dumps({
             "type": "mcp_tool_call",
             "call_id": "test-call-1",
-            "tool_name": "greet",
+            "tool_name": "provider/greet",
             "arguments": {"name": "World"}
         }))
 
-        # Provider should receive the forwarded call
+        # Provider receives call with PLAIN name (namespace stripped)
         msg = await recv_msg(ws_provider)
         self.assertEqual(msg["type"], "mcp_tool_call")
         self.assertEqual(msg["call_id"], "test-call-1")
         self.assertEqual(msg["caller"], "user")
-        self.assertEqual(msg["tool_name"], "greet")
+        self.assertEqual(msg["tool_name"], "greet")  # plain name
         self.assertEqual(msg["arguments"], {"name": "World"})
 
     async def test_tool_result_routes_back_to_caller(self):
-        """Tool result from owner is forwarded back to the caller."""
+        """Tool result from owner is forwarded back to the caller with namespaced name."""
         ws_provider, _ = await self._connect("provider")
         ws_user, _ = await self._connect("user")
         await drain_system_msgs(ws_provider)
-
-        # Register and call
-        await ws_provider.send(json.dumps({
-            "type": "mcp_register",
-            "tools": [{"name": "greet", "description": "Greet"}]
-        }))
-        await recv_msg(ws_provider)
-        await recv_msg(ws_user)
+        await self._register_tool(ws_provider, [ws_user])
 
         await ws_user.send(json.dumps({
             "type": "mcp_tool_call",
             "call_id": "test-call-2",
-            "tool_name": "greet",
+            "tool_name": "provider/greet",
             "arguments": {"name": "World"}
         }))
 
-        # Provider gets the call and responds
         call_msg = await recv_msg(ws_provider)
         await ws_provider.send(json.dumps({
             "type": "mcp_tool_result",
@@ -172,11 +164,10 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
             "result": {"greeting": "Hello, World!"}
         }))
 
-        # User should receive the result
         result = await recv_msg(ws_user)
         self.assertEqual(result["type"], "mcp_tool_result")
         self.assertEqual(result["call_id"], "test-call-2")
-        self.assertEqual(result["tool_name"], "greet")
+        self.assertEqual(result["tool_name"], "provider/greet")  # namespaced
         self.assertEqual(result["owner"], "provider")
         self.assertEqual(result["result"], {"greeting": "Hello, World!"})
 
@@ -187,7 +178,7 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
         await ws_user.send(json.dumps({
             "type": "mcp_tool_call",
             "call_id": "test-call-3",
-            "tool_name": "nonexistent_tool",
+            "tool_name": "nonexistent/tool",
             "arguments": {}
         }))
 
@@ -202,21 +193,11 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
         ws_provider, _ = await self._connect("provider")
         ws_user, _ = await self._connect("user")
         await drain_system_msgs(ws_provider)
+        await self._register_tool(ws_provider, [ws_user])
 
-        # Register tool
-        await ws_provider.send(json.dumps({
-            "type": "mcp_register",
-            "tools": [{"name": "my_tool", "description": "Tool"}]
-        }))
-        await recv_msg(ws_provider)
-        await recv_msg(ws_user)
-
-        # Disconnect provider
         await ws_provider.close()
         self.clients.remove(ws_provider)
 
-        # User should receive mcp_tools_updated with empty list,
-        # followed by a system "left" message
         msgs = []
         for _ in range(3):
             try:
@@ -235,28 +216,19 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
         ws_provider, _ = await self._connect("provider")
         ws_user, _ = await self._connect("user")
         await drain_system_msgs(ws_provider)
-
-        # Register and call
-        await ws_provider.send(json.dumps({
-            "type": "mcp_register",
-            "tools": [{"name": "slow_tool", "description": "Slow"}]
-        }))
-        await recv_msg(ws_provider)
-        await recv_msg(ws_user)
+        await self._register_tool(ws_provider, [ws_user], name="slow_tool", desc="Slow")
 
         await ws_user.send(json.dumps({
             "type": "mcp_tool_call",
             "call_id": "pending-call-1",
-            "tool_name": "slow_tool",
+            "tool_name": "provider/slow_tool",
             "arguments": {}
         }))
         await recv_msg(ws_provider)  # Consume the forwarded call
 
-        # Disconnect provider before responding
         await ws_provider.close()
         self.clients.remove(ws_provider)
 
-        # User should get an error result for the pending call
         msgs = []
         for _ in range(4):
             try:
@@ -289,18 +261,12 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
         ws_provider, _ = await self._connect("provider")
         ws_user, _ = await self._connect("user")
         await drain_system_msgs(ws_provider)
-
-        await ws_provider.send(json.dumps({
-            "type": "mcp_register",
-            "tools": [{"name": "fail_tool", "description": "Fails"}]
-        }))
-        await recv_msg(ws_provider)
-        await recv_msg(ws_user)
+        await self._register_tool(ws_provider, [ws_user], name="fail_tool", desc="Fails")
 
         await ws_user.send(json.dumps({
             "type": "mcp_tool_call",
             "call_id": "err-call-1",
-            "tool_name": "fail_tool",
+            "tool_name": "provider/fail_tool",
             "arguments": {}
         }))
 
@@ -315,6 +281,207 @@ class TestMCPIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["type"], "mcp_tool_result")
         self.assertIn("error", result)
         self.assertEqual(result["error"], "Permission denied")
+
+    # --- New security and edge-case tests ---
+
+    async def test_self_call_prevented(self):
+        """An agent cannot call its own tool."""
+        ws_provider, _ = await self._connect("provider")
+        await self._register_tool(ws_provider, [])
+
+        await ws_provider.send(json.dumps({
+            "type": "mcp_tool_call",
+            "call_id": "self-call-1",
+            "tool_name": "provider/greet",
+            "arguments": {}
+        }))
+
+        result = await recv_msg(ws_provider)
+        self.assertEqual(result["type"], "mcp_tool_result")
+        self.assertIn("error", result)
+        self.assertIn("Cannot call your own tool", result["error"])
+
+    async def test_missing_call_id_rejected(self):
+        """mcp_tool_call without call_id returns error."""
+        ws_user, _ = await self._connect("user")
+
+        await ws_user.send(json.dumps({
+            "type": "mcp_tool_call",
+            "tool_name": "some/tool",
+            "arguments": {}
+        }))
+
+        result = await recv_msg(ws_user)
+        self.assertEqual(result["type"], "mcp_tool_result")
+        self.assertIn("error", result)
+        self.assertIn("call_id", result["error"])
+
+    async def test_missing_tool_name_rejected(self):
+        """mcp_tool_call without tool_name returns error."""
+        ws_user, _ = await self._connect("user")
+
+        await ws_user.send(json.dumps({
+            "type": "mcp_tool_call",
+            "call_id": "test-123",
+            "arguments": {}
+        }))
+
+        result = await recv_msg(ws_user)
+        self.assertEqual(result["type"], "mcp_tool_result")
+        self.assertIn("error", result)
+        self.assertIn("tool_name", result["error"])
+
+    async def test_spoofed_result_dropped(self):
+        """Wrong sender's mcp_tool_result is dropped, pending entry preserved."""
+        ws_provider, _ = await self._connect("provider")
+        ws_user, _ = await self._connect("user")
+        ws_spoofer, _ = await self._connect("spoofer")
+        await drain_system_msgs(ws_provider)
+        await drain_system_msgs(ws_spoofer)
+        await self._register_tool(ws_provider, [ws_user, ws_spoofer])
+
+        # User calls provider's tool
+        await ws_user.send(json.dumps({
+            "type": "mcp_tool_call",
+            "call_id": "spoof-test-1",
+            "tool_name": "provider/greet",
+            "arguments": {}
+        }))
+        await recv_msg(ws_provider)  # provider gets call
+
+        # Spoofer tries to send result (should be dropped)
+        await ws_spoofer.send(json.dumps({
+            "type": "mcp_tool_result",
+            "call_id": "spoof-test-1",
+            "result": {"spoofed": True}
+        }))
+
+        # Small delay to let relay process the spoofed message
+        await asyncio.sleep(0.2)
+
+        # Real provider sends the correct result
+        await ws_provider.send(json.dumps({
+            "type": "mcp_tool_result",
+            "call_id": "spoof-test-1",
+            "result": {"greeting": "Real result"}
+        }))
+
+        # User should get the real result, not the spoofed one
+        # Drain any non-tool-result messages first (e.g., mcp_tools_updated)
+        msgs = []
+        for _ in range(5):
+            try:
+                msg = await recv_msg(ws_user, timeout=2)
+                msgs.append(msg)
+            except asyncio.TimeoutError:
+                break
+
+        results = [m for m in msgs if m["type"] == "mcp_tool_result"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["result"], {"greeting": "Real result"})
+
+    async def test_concurrent_tool_calls(self):
+        """Multiple tool calls in-flight at once all resolve correctly."""
+        ws_provider, _ = await self._connect("provider")
+        ws_user, _ = await self._connect("user")
+        await drain_system_msgs(ws_provider)
+        await self._register_tool(ws_provider, [ws_user])
+
+        # Send two calls
+        for i in range(2):
+            await ws_user.send(json.dumps({
+                "type": "mcp_tool_call",
+                "call_id": f"concurrent-{i}",
+                "tool_name": "provider/greet",
+                "arguments": {"n": i}
+            }))
+
+        # Provider responds to both (in order received)
+        for i in range(2):
+            call = await recv_msg(ws_provider)
+            await ws_provider.send(json.dumps({
+                "type": "mcp_tool_result",
+                "call_id": call["call_id"],
+                "result": {"n": i}
+            }))
+
+        # User gets both results
+        results = {}
+        for _ in range(2):
+            r = await recv_msg(ws_user)
+            results[r["call_id"]] = r
+
+        self.assertIn("concurrent-0", results)
+        self.assertIn("concurrent-1", results)
+        self.assertEqual(results["concurrent-0"]["result"], {"n": 0})
+        self.assertEqual(results["concurrent-1"]["result"], {"n": 1})
+
+    async def test_malformed_register_ignored(self):
+        """mcp_register with tools as a non-list is silently ignored."""
+        ws_provider, _ = await self._connect("provider")
+
+        await ws_provider.send(json.dumps({
+            "type": "mcp_register",
+            "tools": "not a list"
+        }))
+
+        # Should not crash; no tools_updated should arrive (or empty)
+        msg = await drain_system_msgs(ws_provider, timeout=1)
+        # If we got a message, it should not be a tools_updated with tools
+        if msg and msg.get("type") == "mcp_tools_updated":
+            self.assertEqual(msg["available_tools"], [])
+
+    async def test_namespaced_names_in_discovery(self):
+        """Both connected and mcp_tools_updated messages use namespaced names."""
+        ws_provider, _ = await self._connect("provider")
+        await ws_provider.send(json.dumps({
+            "type": "mcp_register",
+            "tools": [{"name": "search", "description": "Search"}]
+        }))
+        update = await recv_msg(ws_provider)
+        self.assertEqual(update["available_tools"][0]["name"], "provider/search")
+
+        # New client sees namespaced tools in connected message
+        ws_user, connected = await self._connect("user")
+        tools = connected["available_tools"]
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(tools[0]["name"], "provider/search")
+
+    async def test_two_providers_same_tool_name(self):
+        """Two providers can register the same plain tool name without collision."""
+        ws_a, _ = await self._connect("alpha")
+        ws_b, _ = await self._connect("beta")
+        ws_user, _ = await self._connect("user")
+        await drain_system_msgs(ws_a)
+        await drain_system_msgs(ws_b)
+
+        # Both register "search"
+        await self._register_tool(ws_a, [ws_b, ws_user], name="search", desc="Alpha search")
+        await self._register_tool(ws_b, [ws_a, ws_user], name="search", desc="Beta search")
+
+        # User calls alpha's search
+        await ws_user.send(json.dumps({
+            "type": "mcp_tool_call",
+            "call_id": "ns-test-1",
+            "tool_name": "alpha/search",
+            "arguments": {"q": "hello"}
+        }))
+
+        call = await recv_msg(ws_a)
+        self.assertEqual(call["tool_name"], "search")  # plain name
+        self.assertEqual(call["caller"], "user")
+
+        # User calls beta's search
+        await ws_user.send(json.dumps({
+            "type": "mcp_tool_call",
+            "call_id": "ns-test-2",
+            "tool_name": "beta/search",
+            "arguments": {"q": "world"}
+        }))
+
+        call = await recv_msg(ws_b)
+        self.assertEqual(call["tool_name"], "search")  # plain name
+        self.assertEqual(call["caller"], "user")
 
 
 if __name__ == "__main__":
