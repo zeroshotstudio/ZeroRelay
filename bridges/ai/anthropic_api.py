@@ -22,7 +22,7 @@ class AnthropicBridge(AIBridge):
         if len(self.history) > 40: self.history = self.history[-30:]
         try:
             r = self.client.messages.create(model=MODEL, max_tokens=MAX_TOKENS,
-                system=f"{self.system_prompt}\n\nConversation context:\n{context}", messages=self.history)
+                system=f"{self._build_full_system_prompt()}\n\nConversation context:\n{context}", messages=self.history)
             text = r.content[0].text; self.history.append({"role": "assistant", "content": text}); return text
         except Exception as e: return f"[Anthropic API error: {e}]"
 

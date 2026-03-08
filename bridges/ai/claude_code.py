@@ -55,10 +55,11 @@ class ClaudeCodeBridge(AIBridge):
             cmd.extend(["--add-dir", ADD_DIR])
 
         # Only pass system prompt on session creation
+        sys_prompt = self._build_full_system_prompt()
         if not self.session_established:
-            cmd.extend(["--system-prompt", self.system_prompt])
+            cmd.extend(["--system-prompt", sys_prompt])
 
-        full_prompt = f"{self.system_prompt}\n\n--- Conversation ---\n{context}\n---\n\nMessage: {prompt}" if not self.session_established else prompt
+        full_prompt = f"{sys_prompt}\n\n--- Conversation ---\n{context}\n---\n\nMessage: {prompt}" if not self.session_established else prompt
 
         try:
             r = subprocess.run(

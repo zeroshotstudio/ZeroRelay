@@ -41,6 +41,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 log = logging.getLogger("zerorelay")
 
 clients: dict[str, object] = {}
+client_info: dict[str, dict] = {}  # role -> {tags: [...], display_name: str}
 history: deque = deque(maxlen=200)
 
 # MCP Tool Broker state
@@ -139,9 +140,29 @@ async def handler(websocket):
         await websocket.close(1008, f"Role '{role}' already connected.")
         return
 
+    # Parse optional tags and display_name from query string
+    raw_tags = query.get("tags", [None])[0]
+    tags = [t.strip() for t in raw_tags.split(",") if t.strip()] if raw_tags else []
+    display_name = query.get("display_name", [None])[0] or role
+
     clients[role] = websocket
+    client_info[role] = {"tags": tags, "display_name": display_name}
     others_online = [r for r in clients if r != role]
-    log.info(f"[+] {role} connected ({len(clients)} clients)")
+    log.info(f"[+] {role} connected ({len(clients)} clients) tags={tags}")
+
+    # Build peer_info for the connecting client (all others' info)
+    peer_info = {r: info for r, info in client_info.items() if r != role}
+
+    # Notify existing clients about the new peer
+    join_msg = json.dumps({"type": "peer_joined", "role": role,
+                           "info": client_info[role],
+                           "timestamp": datetime.now().isoformat()})
+    for r, ws_client in list(clients.items()):
+        if r != role:
+            try:
+                await ws_client.send(join_msg)
+            except Exception:
+                pass
 
     await broadcast(role, {
         "type": "system", "message": f"{role} joined",
@@ -150,6 +171,7 @@ async def handler(websocket):
 
     await websocket.send(make_msg(
         "connected", role=role, peers_online=others_online,
+        peer_info=peer_info,
         history=list(history)[-MAX_HISTORY:],
         available_tools=mcp_registry.get_tools(exclude_role=role)
     ))
@@ -306,6 +328,15 @@ async def handler(websocket):
         log.info(f"[-] {role} disconnected")
     finally:
         clients.pop(role, None)
+        client_info.pop(role, None)
+        # Notify peers about departure
+        leave_msg = json.dumps({"type": "peer_left", "role": role,
+                                "timestamp": datetime.now().isoformat()})
+        for r, ws_client in list(clients.items()):
+            try:
+                await ws_client.send(leave_msg)
+            except Exception:
+                pass
         # Clean up rate limits
         rate_limits.pop(role, None)
         mcp_rate_limits.pop(role, None)

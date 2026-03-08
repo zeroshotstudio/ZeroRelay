@@ -23,7 +23,7 @@ class OllamaBridge(AIBridge):
         if len(self.history) > 40: self.history = self.history[-30:]
         try:
             payload = json.dumps({"model": MODEL, "stream": False,
-                "messages": [{"role": "system", "content": f"{self.system_prompt}\n\nConversation:\n{context}"}, *self.history]}).encode()
+                "messages": [{"role": "system", "content": f"{self._build_full_system_prompt()}\n\nConversation:\n{context}"}, *self.history]}).encode()
             req = urllib.request.Request(f"{HOST}/api/chat", data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")
             with urllib.request.urlopen(req, timeout=120) as resp:

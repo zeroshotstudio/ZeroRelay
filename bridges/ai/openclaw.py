@@ -93,7 +93,7 @@ class OpenClawBridge(AIBridge):
     def _generate_cli(self, prompt: str, context: str) -> str:
         """Call OpenClaw agent via docker exec CLI (default mode)."""
         full_msg = (
-            f"{self.system_prompt}\n\n"
+            f"{self._build_full_system_prompt()}\n\n"
             f"--- Recent conversation ---\n{context}\n"
             f"--- End conversation ---\n\n"
             f"Message: {prompt}"

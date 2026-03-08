@@ -25,7 +25,7 @@ class OpenAIBridge(AIBridge):
         self.history.append({"role": "user", "content": prompt})
         if len(self.history) > 40: self.history = self.history[-30:]
         try:
-            msgs = [{"role": "system", "content": f"{self.system_prompt}\n\nConversation context:\n{context}"}, *self.history]
+            msgs = [{"role": "system", "content": f"{self._build_full_system_prompt()}\n\nConversation context:\n{context}"}, *self.history]
             r = self.client.chat.completions.create(model=MODEL, messages=msgs, max_tokens=MAX_TOKENS)
             text = r.choices[0].message.content; self.history.append({"role": "assistant", "content": text}); return text
         except Exception as e: return f"[OpenAI API error: {e}]"

@@ -27,7 +27,7 @@ class GeminiBridge(AIBridge):
         try:
             r = self.client.models.generate_content(model=MODEL, contents=self.chat_history,
                 config=types.GenerateContentConfig(
-                    system_instruction=f"{self.system_prompt}\n\nConversation context:\n{context}",
+                    system_instruction=f"{self._build_full_system_prompt()}\n\nConversation context:\n{context}",
                     max_output_tokens=MAX_TOKENS))
             text = r.text; self.chat_history.append({"role": "model", "parts": [{"text": text}]}); return text
         except Exception as e: return f"[Gemini API error: {e}]"

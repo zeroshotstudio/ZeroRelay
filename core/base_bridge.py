@@ -75,6 +75,7 @@ class BaseBridge(ABC):
         self.operator_role = os.environ.get("ZERORELAY_OPERATOR", "operator")
         self._mcp_pending: dict[str, asyncio.Future] = {}
         self._available_remote_tools: list[dict] = []
+        self._peer_directory: dict[str, dict] = {}  # role -> {tags, display_name}
 
         if tags:
             escaped = [re.escape(t.lstrip("@")) for t in tags]
@@ -83,10 +84,16 @@ class BaseBridge(ABC):
             self._tag_re = None
 
     def _build_uri(self) -> str:
-        """Build relay URI with role and optional token."""
+        """Build relay URI with role, optional token, and tags."""
         uri = f"{self.relay_url}?role={self.role}"
         if self.relay_token:
             uri += f"&token={self.relay_token}"
+        if self.tags:
+            from urllib.parse import quote
+            uri += f"&tags={quote(','.join(self.tags))}"
+        if self.display_name and self.display_name != self.role:
+            from urllib.parse import quote
+            uri += f"&display_name={quote(self.display_name)}"
         return uri
 
     def is_addressed(self, content: str) -> bool:
@@ -96,6 +103,18 @@ class BaseBridge(ABC):
     def strip_tags(self, content: str) -> str:
         if self._tag_re is None: return content
         return self._tag_re.sub("", content).strip()
+
+    def format_peer_directory(self) -> str:
+        """Format known peers and their @-tags for prompt injection."""
+        if not self._peer_directory:
+            return ""
+        lines = ["Other participants you can talk to:"]
+        for role, info in sorted(self._peer_directory.items()):
+            tags = info.get("tags", [])
+            name = info.get("display_name", role)
+            tag_str = ", ".join(tags) if tags else f"@{role}"
+            lines.append(f"  - {name} (role: {role}) — mention with: {tag_str}")
+        return "\n".join(lines)
 
     def format_transcript(self) -> str:
         if not self.transcript: return "(no prior messages)"
@@ -163,7 +182,10 @@ class BaseBridge(ABC):
     @abstractmethod
     async def on_message(self, sender: str, content: str, data: dict): pass
 
-    async def on_connect(self, peers: list[str]):
+    async def on_connect(self, peers: list[str], peer_info: dict | None = None):
+        """Called on connect. peer_info: {role: {tags: [...], display_name: str}}"""
+        if peer_info:
+            self._peer_directory = peer_info
         log.info(f"Connected as {self.role}. Peers: {peers}")
 
     async def on_system(self, message: str):
@@ -200,7 +222,18 @@ class BaseBridge(ABC):
                             for h in data.get("history", []):
                                 if h.get("type") == "message": self.transcript.append(h)
                             self._available_remote_tools = data.get("available_tools", [])
-                            await self.on_connect(data.get("peers_online", []))
+                            await self.on_connect(
+                                data.get("peers_online", []),
+                                peer_info=data.get("peer_info"))
+                            continue
+                        if msg_type == "peer_joined":
+                            role = data.get("role", "")
+                            info = data.get("info")
+                            if role and info:
+                                self._peer_directory[role] = info
+                            continue
+                        if msg_type == "peer_left":
+                            self._peer_directory.pop(data.get("role", ""), None)
                             continue
                         if msg_type == "system":
                             await self.on_system(data.get("message", "")); continue
@@ -239,8 +272,19 @@ class AIBridge(BaseBridge):
         self.system_prompt = system_prompt or build_relay_prompt(
             name=self.display_name, role=self.role, tags=self.tags)
 
-    async def on_connect(self, peers: list[str]):
-        await super().on_connect(peers)
+    def _build_full_system_prompt(self) -> str:
+        """Build full system prompt with peer directory injected dynamically."""
+        parts = [self.system_prompt]
+        peers = self.format_peer_directory()
+        if peers:
+            parts.append(peers)
+        tools = self.format_tools()
+        if tools:
+            parts.append(tools)
+        return "\n\n".join(parts)
+
+    async def on_connect(self, peers: list[str], peer_info: dict | None = None):
+        await super().on_connect(peers, peer_info=peer_info)
         if self._available_remote_tools:
             names = [t.get("name", "?") for t in self._available_remote_tools]
             log.info(f"[MCP] {len(names)} remote tools available: {names}")
