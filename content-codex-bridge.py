@@ -106,10 +106,7 @@ async def call_codex(prompt: str, ws) -> str:
     cmd = [
         "codex",
         "--search",
-        "-s",
-        "workspace-write",
-        "-a",
-        "never",
+        "--dangerously-bypass-approvals-and-sandbox",
         "exec",
         "-C",
         WORKDIR,
