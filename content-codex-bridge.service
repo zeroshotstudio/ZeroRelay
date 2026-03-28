@@ -1,0 +1,21 @@
+[Unit]
+Description=ZeroRelay Codex bridge for ZeroContentPipeline
+After=network-online.target zerorelay.service
+Wants=network-online.target
+
+[Service]
+Environment=HOME=/home/claude
+Type=simple
+User=claude
+Group=claude
+WorkingDirectory=/home/claude/ZeroContentPipeline
+ExecStart=/usr/bin/python3 /opt/zerorelay/content-codex-bridge.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/zerorelay/relay.env
+ReadWritePaths=/opt/zerorelay /home/claude/ZeroContentPipeline /home/claude/.codex
+
+[Install]
+WantedBy=multi-user.target
