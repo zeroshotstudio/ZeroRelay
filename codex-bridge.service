@@ -1,0 +1,21 @@
+[Unit]
+Description=ZeroRelay Codex CLI bridge (vps_codex)
+After=network-online.target zerorelay.service
+Wants=network-online.target
+
+[Service]
+Environment=HOME=/home/claude
+Type=simple
+User=claude
+Group=claude
+WorkingDirectory=/home/claude/ZeroVPS
+ExecStart=/usr/bin/python3 /opt/zerorelay/codex-bridge.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/zerorelay/relay.env
+ReadWritePaths=/opt/zerorelay /home/claude/ZeroVPS /home/claude/.codex
+
+[Install]
+WantedBy=multi-user.target

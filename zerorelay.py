@@ -4,10 +4,11 @@ ZeroRelay — WebSocket relay server (3-party).
 Run on your VPS: python3 zerorelay.py --host YOUR_TAILSCALE_IP
 
 Three or more clients can connect:
-  ws://IP:8765?role=vps_claude   (Claude Code bridge)
+  ws://IP:8765?role=vps_claude    (Claude Code bridge)
+  ws://IP:8765?role=vps_codex     (Codex CLI bridge for ZeroVPS)
   ws://IP:8765?role=content_codex (Codex bridge for ZeroContentPipeline)
-  ws://IP:8765?role=zee          (OpenClaw bridge)
-  ws://IP:8765?role=jimmy        (you, via Telegram bridge)
+  ws://IP:8765?role=zee           (OpenClaw bridge)
+  ws://IP:8765?role=jimmy         (you, via Telegram bridge)
 
 Messages from any client are broadcast to all others.
 """
@@ -31,7 +32,7 @@ log = logging.getLogger("zerorelay")
 
 clients: dict[str, websockets.WebSocketServerProtocol] = {}
 history: deque = deque(maxlen=200)
-VALID_ROLES = ("vps_claude", "content_codex", "zee", "jimmy")
+VALID_ROLES = ("vps_claude", "vps_codex", "content_codex", "zee", "jimmy")
 
 # Auth token from environment
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")

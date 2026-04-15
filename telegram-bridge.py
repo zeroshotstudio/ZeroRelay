@@ -48,6 +48,7 @@ RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 # Sender display formatting for Telegram
 SENDER_ICONS = {
     "vps_claude": "\U0001f9e0 Claude",
+    "vps_codex": "\U0001f916 Codex",
     "content_codex": "\U0001f4dd Content",
     "zee": "\u26a1 Zee",
     "jimmy": "\U0001f3cd Jimmy",
@@ -201,7 +202,7 @@ async def relay_to_telegram(ws):
             sysmsg = data.get("message", "")
             log.info(f"System: {sysmsg}")
             # Suppress AI agent join/leave — they're always-on services
-            if any(role in sysmsg for role in ("vps_claude", "content_codex", "zee")):
+            if any(role in sysmsg for role in ("vps_claude", "vps_codex", "content_codex", "zee")):
                 continue
             # Use friendly names for any remaining system messages
             for role, icon in SENDER_ICONS.items():
@@ -228,6 +229,8 @@ async def relay_to_telegram(ws):
             # Update sticky target when an agent responds
             if sender == "vps_claude":
                 sticky["agent"] = "claude"
+            elif sender == "vps_codex":
+                sticky["agent"] = "codex"
             elif sender == "content_codex":
                 sticky["agent"] = "content"
             elif sender == "zee":
@@ -268,13 +271,14 @@ async def relay_to_telegram(ws):
             await tg_send(f"<b>{html_escape(label)}</b>\n{html_escape(content)}")
 
 
-TAG_PATTERN = re.compile(r"@(?:content|codex|c(?:laude)?|z(?:ee)?)\b", re.IGNORECASE)
+TAG_PATTERN = re.compile(r"@(?:content|codex|vpscodex|codexvps|c(?:laude)?|z(?:ee)?)\b", re.IGNORECASE)
 CLAUDE_TAG = re.compile(r"@c(?:laude)?\b", re.IGNORECASE)
-CONTENT_TAG = re.compile(r"@(?:content|codex)\b", re.IGNORECASE)
+CODEX_TAG = re.compile(r"@(?:codex|vpscodex|codexvps)\b", re.IGNORECASE)
+CONTENT_TAG = re.compile(r"@content\b", re.IGNORECASE)
 ZEE_TAG = re.compile(r"@z(?:ee)?\b", re.IGNORECASE)
 
 # Sticky addressing state — shared between relay_to_telegram and telegram_to_relay
-sticky = {"agent": None}  # "claude" | "content" | "zee"
+sticky = {"agent": None}  # "claude" | "codex" | "content" | "zee"
 
 
 async def telegram_to_relay(ws):
@@ -302,7 +306,7 @@ async def telegram_to_relay(ws):
                 if cmd == "/killswitch":
                     log.warning("KILLSWITCH activated by Jimmy")
                     stopped = []
-                    for svc in ["claude-bridge", "content-codex-bridge", "zerobridge"]:
+                    for svc in ["claude-bridge", "codex-bridge", "content-codex-bridge", "zerobridge"]:
                         r = subprocess.run(
                             ["sudo", "systemctl", "stop", svc],
                             capture_output=True, text=True, timeout=10
@@ -320,7 +324,7 @@ async def telegram_to_relay(ws):
                 if cmd == "/start":
                     log.info("START requested by Jimmy")
                     started = []
-                    for svc in ["claude-bridge", "content-codex-bridge", "zerobridge"]:
+                    for svc in ["claude-bridge", "codex-bridge", "content-codex-bridge", "zerobridge"]:
                         r = subprocess.run(
                             ["sudo", "systemctl", "start", svc],
                             capture_output=True, text=True, timeout=10
@@ -329,14 +333,14 @@ async def telegram_to_relay(ws):
                             started.append(svc)
                         else:
                             log.error(f"Failed to start {svc}: {r.stderr}")
-                    msg = f"\U0001f7e2 <b>STARTED</b>\n\U0001f9e0 Claude: {'\u2713' if 'claude-bridge' in started else '\u2717'}\n\U0001f4dd Content: {'\u2713' if 'content-codex-bridge' in started else '\u2717'}\n\u26a1 Zee: {'\u2713' if 'zerobridge' in started else '\u2717'}"
+                    msg = f"\U0001f7e2 <b>STARTED</b>\n\U0001f9e0 Claude: {'\u2713' if 'claude-bridge' in started else '\u2717'}\n\U0001f916 Codex: {'\u2713' if 'codex-bridge' in started else '\u2717'}\n\U0001f4dd Content: {'\u2713' if 'content-codex-bridge' in started else '\u2717'}\n\u26a1 Zee: {'\u2713' if 'zerobridge' in started else '\u2717'}"
                     await tg_send(msg)
                     continue
 
                 # /status — check which bridges are running
                 if cmd == "/status":
                     lines = []
-                    for svc, label in [("claude-bridge", "\U0001f9e0 Claude"), ("content-codex-bridge", "\U0001f4dd Content"), ("zerobridge", "\u26a1 Zee"), ("telegram-bridge", "\U0001f3cd Telegram")]:
+                    for svc, label in [("claude-bridge", "\U0001f9e0 Claude"), ("codex-bridge", "\U0001f916 Codex"), ("content-codex-bridge", "\U0001f4dd Content"), ("zerobridge", "\u26a1 Zee"), ("telegram-bridge", "\U0001f3cd Telegram")]:
                         r = subprocess.run(
                             ["sudo", "systemctl", "is-active", svc],
                             capture_output=True, text=True, timeout=5
@@ -362,11 +366,14 @@ async def telegram_to_relay(ws):
                     try:
                         if sticky["agent"] == "content":
                             targets = [("/opt/zerorelay/content-codex-stop", "Content")]
+                        elif sticky["agent"] == "codex":
+                            targets = [("/opt/zerorelay/codex-stop", "Codex")]
                         elif sticky["agent"] == "claude":
                             targets = [("/opt/zerorelay/stop-signal", "Claude")]
                         else:
                             targets = [
                                 ("/opt/zerorelay/stop-signal", "Claude"),
+                                ("/opt/zerorelay/codex-stop", "Codex"),
                                 ("/opt/zerorelay/content-codex-stop", "Content"),
                             ]
 
@@ -384,18 +391,25 @@ async def telegram_to_relay(ws):
                 # Check for explicit @tags and update sticky target
                 has_tag = TAG_PATTERN.search(text)
                 if has_tag:
+                    outbound_text = text
                     if CLAUDE_TAG.search(text):
                         sticky["agent"] = "claude"
+                    if CODEX_TAG.search(text):
+                        sticky["agent"] = "codex"
+                        outbound_text = CODEX_TAG.sub("@vpscodex", outbound_text)
                     if CONTENT_TAG.search(text):
                         sticky["agent"] = "content"
+                        outbound_text = CONTENT_TAG.sub("@content", outbound_text)
                     if ZEE_TAG.search(text):
                         sticky["agent"] = "zee"
                     await tg_typing()
-                    await ws.send(json.dumps({"content": text}))
+                    await ws.send(json.dumps({"content": outbound_text}))
                 elif sticky["agent"] and not cmd.startswith("/"):
                     # No @tag — auto-route to last agent
                     if sticky["agent"] == "claude":
                         tag = "@c"
+                    elif sticky["agent"] == "codex":
+                        tag = "@vpscodex"
                     elif sticky["agent"] == "content":
                         tag = "@content"
                     else:
