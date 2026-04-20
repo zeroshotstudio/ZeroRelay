@@ -1,0 +1,23 @@
+[Unit]
+Description=ZeroRelay Telegram bridge (Jimmy)
+After=network-online.target zerorelay.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zerorelay
+Group=zerorelay
+ExecStart=/opt/zerorelay/venv/bin/python /opt/zerorelay/telegram-bridge.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/zerorelay/relay.env
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/opt/zerorelay
+
+[Install]
+WantedBy=multi-user.target

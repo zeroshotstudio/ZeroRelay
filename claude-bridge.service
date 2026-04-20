@@ -1,5 +1,5 @@
 [Unit]
-Description=ZeroRelay Codex bridge for ZeroContentPipeline
+Description=ZeroRelay Claude Code bridge (claude_ai)
 After=network-online.target zerorelay.service
 Wants=network-online.target
 
@@ -8,14 +8,14 @@ Environment=HOME=/home/claude
 Type=simple
 User=claude
 Group=claude
-WorkingDirectory=/home/claude/ZeroContentPipeline
-ExecStart=/opt/zerorelay/venv/bin/python /opt/zerorelay/content-codex-bridge.py
+WorkingDirectory=/home/claude/ZeroVPS
+ExecStart=/opt/zerorelay/venv/bin/python /opt/zerorelay/claude-bridge.py
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 EnvironmentFile=/opt/zerorelay/relay.env
-ReadWritePaths=/opt/zerorelay /home/claude/ZeroContentPipeline /home/claude/.codex
+ReadWritePaths=/opt/zerorelay
 
 [Install]
 WantedBy=multi-user.target

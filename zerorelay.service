@@ -1,0 +1,23 @@
+[Unit]
+Description=ZeroRelay WebSocket broker (Tailscale only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zerorelay
+Group=zerorelay
+ExecStart=/opt/zerorelay/venv/bin/python /opt/zerorelay/zerorelay.py --host 100.127.106.41 --port 8765
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/zerorelay/relay.env
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/opt/zerorelay
+
+[Install]
+WantedBy=multi-user.target

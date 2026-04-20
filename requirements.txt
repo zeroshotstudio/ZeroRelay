@@ -1,8 +1,8 @@
-# Core (required)
-websockets>=12.0
+# Production runtime (pinned)
+websockets==16.0
+httpx==0.28.1
 
 # Chat bridges (install what you need)
-# httpx           # Telegram
 # discord.py      # Discord
 # slack-bolt      # Slack
 

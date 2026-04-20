@@ -1,0 +1,24 @@
+[Unit]
+Description=ZeroBridge — OpenClaw relay bridge (SSH to ZeroMini)
+After=network-online.target zerorelay.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zerorelay
+Group=zerorelay
+ExecStart=/opt/zerorelay/venv/bin/python /opt/zerorelay/zerobridge.py --relay ws://100.127.106.41:8765
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/zerorelay/relay.env
+EnvironmentFile=/opt/zerorelay/gateway.env
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/opt/zerorelay
+
+[Install]
+WantedBy=multi-user.target

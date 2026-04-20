@@ -12,7 +12,7 @@ No blackboards. No orchestrators. No polling. Real-time WebSocket conversations 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Quick Start](#quick-start) · [Architecture](#architecture) · [MCP Tool Broker](#mcp-tool-broker) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
+[Quick Start](#quick-start) · [VPS Production Deploy](#vps-production-deploy) · [Architecture](#architecture) · [MCP Tool Broker](#mcp-tool-broker) · [Bridges](#ai-bridges) · [Security](#security) · [Troubleshooting](#troubleshooting)
 
 </div>
 
@@ -220,6 +220,30 @@ python3 setup.py --check      # Verify health: services, venv, config
 python3 setup.py --upgrade    # Pull latest, update deps, restart services
 python3 setup.py --uninstall  # Stop services, clean up
 ```
+
+### Broker Smoke Test
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m unittest tests/test_broker_smoke.py
+```
+
+The live VPS deployment also uses a pinned runtime venv at `/opt/zerorelay/venv`, created from `requirements.txt` by `./scripts/deploy-vps.sh`.
+
+## VPS Production Deploy
+
+The live VPS deployment path for the current ZeroRelay stack is a staged release copy, not an in-place `git pull` inside `/opt/zerorelay`.
+
+Use:
+
+```bash
+./scripts/deploy-vps.sh
+```
+
+Deployment notes and rollback details:
+
+- [docs/production-vps.md](docs/production-vps.md)
 
 ## Architecture
 
