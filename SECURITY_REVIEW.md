@@ -99,6 +99,18 @@ AI agent responses can exceed Telegram's max message length. The API will reject
 
 ---
 
+## Resolved — 2026-07-01 (P0, branch `bugfix/security-p0-auth-token`)
+
+| ID | Issue | Resolution |
+|----|-------|------------|
+| 1 | Constant-time token comparison | `core/relay_auth.py` `token_is_valid()` uses `secrets.compare_digest` |
+| 2 | Token in query string | Clients send `Authorization: Bearer` or `X-Relay-Token`; query string deprecated with warning |
+| 3 | CLI bridge missing token | `bridges/chat/cli.py` uses header auth via `core/relay_auth` |
+
+Tests: `tests/test_auth_security.py`, `tests/test_rate_limit.py`
+
+---
+
 ## Missing Test Coverage
 
 - Token authentication (valid/invalid/missing)

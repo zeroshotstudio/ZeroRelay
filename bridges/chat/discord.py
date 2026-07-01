@@ -5,6 +5,9 @@ Requires: pip install discord.py"""
 import asyncio, json, logging, os, sys
 import websockets
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.relay_auth import relay_headers, relay_uri
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("discord-bridge")
 
@@ -60,9 +63,8 @@ async def relay_listener():
     global ws_conn
     while True:
         try:
-            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
-            uri = f"{RELAY_URL}?role={ROLE}{token_param}"
-            async with websockets.connect(uri) as ws:
+            uri = relay_uri(RELAY_URL, ROLE)
+            async with websockets.connect(uri, additional_headers=relay_headers()) as ws:
                 ws_conn = ws; log.info("Connected to relay")
                 if relay_ch: await relay_ch.send("**ZeroRelay connected**")
                 async for raw in ws:

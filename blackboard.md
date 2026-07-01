@@ -34,7 +34,7 @@
 | Track | Task | Branch |
 |-------|------|--------|
 | PM | Sprint 1 planning + day tracker | `pm/phase-0-sprint-1` |
-| B — Security | B1–B4 awaiting impl agent | `bugfix/security-p0-auth-token` (not started) |
+| B — Security | B1–B4 on `bugfix/security-p0-auth-token` | `bugfix/security-p0-auth-token` |
 | A — GTM | A1 demo GIF storyboard ready; record pending owner | `docs/gtm-phase-0` (not started) |
 
 ## Active Decisions
@@ -59,8 +59,11 @@
 
 ## Blockers
 
-### Owner sign-off on open decisions — 2026-07-01
-PM defaults documented in `docs/plans/open-decisions.md`. Proceeding with Code Review Room wedge unless overridden.
+### Owner sign-off on product decisions — 2026-07-01
+All open decisions in `docs/plans/open-decisions.md` approved (Code Review Room wedge, `relay.zeroshot.studio`, parallel Sprint 1 tracks).
+
+### Security P0 implementation in progress — 2026-07-01
+Branch `bugfix/security-p0-auth-token`: header-based relay auth (B2), shared `core/relay_auth.py`, security test suite (B4).
 
 ### Demo GIF requires live relay — 2026-07-01
 Owner or impl agent must run 2-agent setup (Telegram + Claude + Codex) for A1 recording. Storyboard ready.

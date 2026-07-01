@@ -15,6 +15,9 @@ Env:
 import asyncio, html as html_mod, json, logging, os, re, subprocess, sys, time as time_mod
 import websockets
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.relay_auth import relay_headers, relay_uri
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("telegram-bridge")
 
@@ -215,9 +218,8 @@ async def main():
     backoff = 3
     while True:
         try:
-            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
-            uri = f"{RELAY_URL}?role={ROLE}{token_param}"
-            async with websockets.connect(uri) as ws:
+            uri = relay_uri(RELAY_URL, ROLE)
+            async with websockets.connect(uri, additional_headers=relay_headers()) as ws:
                 backoff = 3
                 r_task = asyncio.create_task(relay_to_telegram(ws))
                 t_task = asyncio.create_task(telegram_to_relay(ws))

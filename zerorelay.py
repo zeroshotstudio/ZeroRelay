@@ -17,12 +17,16 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from collections import deque
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
 
 import websockets
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from core.relay_auth import extract_handshake_token, token_is_valid
 
 logging.basicConfig(
     level=logging.INFO,
@@ -78,12 +82,15 @@ async def handler(websocket):
     query = parse_qs(urlparse(f"ws://x{path}").query)
     role = query.get("role", [None])[0]
 
-    # Token authentication
-    token = query.get("token", [None])[0]
-    if RELAY_TOKEN and token != RELAY_TOKEN:
-        log.warning(f"Rejected connection: invalid token (role={role})")
-        await websocket.close(1008, "Invalid or missing token")
-        return
+    # Token authentication (header preferred; query string deprecated)
+    if RELAY_TOKEN:
+        token, from_query = extract_handshake_token(websocket, query)
+        if from_query:
+            log.warning(f"Deprecated: relay token in query string (role={role}); use Authorization header")
+        if not token_is_valid(token, RELAY_TOKEN):
+            log.warning(f"Rejected connection: invalid token (role={role})")
+            await websocket.close(1008, "Invalid or missing token")
+            return
 
     if role not in VALID_ROLES:
         await websocket.close(1008, f"Invalid role. Use ?role={' | '.join(VALID_ROLES)}")

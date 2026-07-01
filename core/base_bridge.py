@@ -20,6 +20,8 @@ from abc import ABC, abstractmethod
 
 import websockets
 
+from core.relay_auth import relay_headers, relay_uri
+
 log = logging.getLogger("bridge")
 
 
@@ -45,11 +47,11 @@ class BaseBridge(ABC):
             self._tag_re = None
 
     def _build_uri(self) -> str:
-        """Build relay URI with role and optional token."""
-        uri = f"{self.relay_url}?role={self.role}"
-        if self.relay_token:
-            uri += f"&token={self.relay_token}"
-        return uri
+        """Build relay URI with role (token via headers, not query string)."""
+        return relay_uri(self.relay_url, self.role)
+
+    def _relay_headers(self) -> dict[str, str]:
+        return relay_headers(self.relay_token)
 
     def is_addressed(self, content: str) -> bool:
         if self._tag_re is None: return True
@@ -137,7 +139,7 @@ class BaseBridge(ABC):
         while True:
             try:
                 log.info(f"Connecting to relay")
-                async with websockets.connect(uri) as ws:
+                async with websockets.connect(uri, additional_headers=self._relay_headers()) as ws:
                     self.ws = ws
                     backoff = 3  # Reset on success
                     async for raw in ws:

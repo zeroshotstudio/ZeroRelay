@@ -25,6 +25,10 @@ import re
 
 import websockets
 
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from core.relay_auth import relay_headers, relay_uri
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
@@ -246,8 +250,7 @@ async def watch_zee_outbox(ws):
 
 async def bridge(relay_url: str, agent_id: str, session_key_prefix: str):
     """Main bridge loop — relay ←→ OpenClaw CLI with @z addressing."""
-    token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
-    uri = f"{relay_url}?role=zee{token_param}"
+    uri = relay_uri(relay_url, "zee")
     transcript: list[dict] = []
     session_counter = [0]  # Mutable for reset
     last_activity = [datetime.now()]
@@ -269,7 +272,7 @@ async def bridge(relay_url: str, agent_id: str, session_key_prefix: str):
     while True:
         try:
             log.info(f"Connecting to relay")
-            async with websockets.connect(uri) as ws:
+            async with websockets.connect(uri, additional_headers=relay_headers()) as ws:
                 log.info("Connected to relay as zee")
                 backoff = 3  # Reset on successful connect
 

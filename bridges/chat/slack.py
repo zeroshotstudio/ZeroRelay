@@ -7,6 +7,9 @@ Setup: Create Slack App > Enable Socket Mode > Add chat:write + channels:history
 import asyncio, json, logging, os, sys, threading
 import websockets
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.relay_auth import relay_headers, relay_uri
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("slack-bridge")
 
@@ -56,8 +59,9 @@ def send_to_slack(text):
 async def relay_listener():
     while True:
         try:
-            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
-            async with websockets.connect(f"{RELAY_URL}?role={ROLE}{token_param}") as ws:
+            async with websockets.connect(
+                relay_uri(RELAY_URL, ROLE), additional_headers=relay_headers()
+            ) as ws:
                 ws_ref["ws"] = ws; send_to_slack("*ZeroRelay connected*")
                 async for raw in ws:
                     try: data = json.loads(raw)

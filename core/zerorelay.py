@@ -24,7 +24,6 @@ import asyncio
 import json
 import logging
 import os
-import secrets
 import sys
 import time
 from collections import deque
@@ -36,6 +35,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import websockets
 
 from core.mcp_registry import MCPRegistry
+from core.relay_auth import extract_handshake_token, token_is_valid
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("zerorelay")
@@ -119,10 +119,12 @@ async def handler(websocket):
     query = parse_qs(urlparse(f"ws://x{path}").query)
     role = query.get("role", [None])[0]
 
-    # Token authentication
+    # Token authentication (header preferred; query string deprecated)
     if RELAY_TOKEN:
-        token = query.get("token", [None])[0]
-        if not token or not secrets.compare_digest(token, RELAY_TOKEN):
+        token, from_query = extract_handshake_token(websocket, query)
+        if from_query:
+            log.warning(f"Deprecated: relay token in query string (role={role}); use Authorization header")
+        if not token_is_valid(token, RELAY_TOKEN):
             log.warning(f"Rejected: invalid token (role={role})")
             await websocket.close(1008, "Invalid or missing token")
             return
@@ -367,7 +369,7 @@ async def main():
     log.info(f"ZeroRelay on ws://{args.host}:{args.port}")
     log.info(f"Auth: {'enabled' if RELAY_TOKEN else 'DISABLED'}")
     if RELAY_TOKEN:
-        log.warning("Token is passed via query string. Use WSS (TLS) or a reverse proxy to prevent token exposure in logs.")
+        log.info("Auth: prefer Authorization: Bearer header; query-string token is deprecated")
     log.info(f"MCP: timeout={MCP_CALL_TIMEOUT}s, rate={MCP_RATE_LIMIT_MAX}/{MCP_RATE_LIMIT_WINDOW}s")
     log.info(roles_info)
     asyncio.create_task(mcp_timeout_sweep())

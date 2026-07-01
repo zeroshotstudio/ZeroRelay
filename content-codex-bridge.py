@@ -23,6 +23,10 @@ from datetime import datetime
 
 import websockets
 
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from core.relay_auth import relay_headers, relay_uri
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
@@ -218,12 +222,11 @@ async def main():
 
     while True:
         try:
-            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
-            uri = f"{RELAY_URL}?role={ROLE}{token_param}"
+            uri = relay_uri(RELAY_URL, ROLE)
             log.info("Connecting to relay")
             write_inbox(f"[{ts()}] Connecting to relay...")
 
-            async with websockets.connect(uri) as ws:
+            async with websockets.connect(uri, additional_headers=relay_headers()) as ws:
                 log.info(f"Connected as {ROLE}")
                 write_inbox(f"[{ts()}] Connected as {ROLE}")
                 backoff = 3

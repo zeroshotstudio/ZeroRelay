@@ -6,6 +6,9 @@ Commands: /quit, /reset, /status, /help"""
 import asyncio, json, logging, os, sys
 import websockets
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+from core.relay_auth import relay_headers, relay_uri
+
 logging.basicConfig(level=logging.WARNING)
 RELAY_URL = os.environ.get("ZERORELAY_URL", "ws://localhost:8765")
 ROLE = os.environ.get("CLI_ROLE", "operator")
@@ -67,8 +70,9 @@ async def main():
     cp(f"  Connecting to {RELAY_URL} as {ROLE}...\n", "dim")
     while True:
         try:
-            token_param = f"&token={RELAY_TOKEN}" if RELAY_TOKEN else ""
-            async with websockets.connect(f"{RELAY_URL}?role={ROLE}{token_param}") as ws:
+            async with websockets.connect(
+                relay_uri(RELAY_URL, ROLE), additional_headers=relay_headers()
+            ) as ws:
                 d, i = asyncio.create_task(display(ws)), asyncio.create_task(inp(ws))
                 done, pend = await asyncio.wait([d, i], return_when=asyncio.FIRST_COMPLETED)
                 for t in pend: t.cancel()
