@@ -7,10 +7,12 @@
 
 | Field              | Value |
 |--------------------|-------|
-| **Last updated**   | 2026-06-30 |
-| **Current focus**  | Planning complete — ready to execute Phase 0 (security + GTM) in parallel with Cloud MVP prep |
-| **Blocking issues**| GitHub push from cloud agent failed (403) — owner must push branch locally |
+| **Last updated**   | 2026-07-01 |
+| **Current focus**  | **Sprint 1 (Phase 0)** — parallel security P0 (G0) + GTM assets (G1) |
+| **Active branch**  | `pm/phase-0-sprint-1` (PM/planning); next impl: `bugfix/security-p0-auth-token` |
+| **Blocking issues**| Owner sign-off on open decisions (`docs/plans/open-decisions.md`) — PM defaults apply until overridden |
 | **Build status**   | OSS: `python3 -m unittest discover -s tests` expected green; no Cloud code yet |
+| **Gates**          | G0 ☐ · G1 ☐ · G2 ☐ · G3 ☐ · G4 ☐ |
 
 ## Planning Artifacts (2026-06-30)
 
@@ -22,10 +24,18 @@
 | `docs/plans/zerorelay-cloud-implementation-plan.md` | Cloud MVP build plan (8–10 weeks) |
 | `docs/plans/zerorelay-managed-stack-plan.md` | ZeroVPS Managed Relay Stack SKU (Phase 2) |
 | `docs/plans/zerorelay-analytics-schema.md` | Event schema for product metrics |
+| `docs/plans/zerorelay-sprint-1-plan.md` | **Sprint 1 task plan** (2 weeks, Jul 1–14) |
+| `docs/plans/open-decisions.md` | Owner sign-off tracker |
+| `docs/plans/demo-gif-storyboard.md` | GTM demo GIF shot list |
+| `docs/plans/security-p0-impl-brief.md` | Coding agent handoff for B1–B4 |
 
 ## In Progress
 
-None — planning session only.
+| Track | Task | Branch |
+|-------|------|--------|
+| PM | Sprint 1 planning + day tracker | `pm/phase-0-sprint-1` |
+| B — Security | B1–B4 awaiting impl agent | `bugfix/security-p0-auth-token` (not started) |
+| A — GTM | A1 demo GIF storyboard ready; record pending owner | `docs/gtm-phase-0` (not started) |
 
 ## Active Decisions
 
@@ -49,19 +59,19 @@ None — planning session only.
 
 ## Blockers
 
-### Cloud agent cannot push to GitHub — 2026-06-30
-Branch `cursor/zerorelay-product-prd-a48f` exists locally with planning commits. Owner must:
-```bash
-git push -u origin cursor/zerorelay-product-prd-a48f
-```
+### Owner sign-off on open decisions — 2026-07-01
+PM defaults documented in `docs/plans/open-decisions.md`. Proceeding with Code Review Room wedge unless overridden.
 
-### Wedge choice for vertical landing pages — open
-Owner must pick one before building wedge-specific marketing (see PRD §5.2):
-- Code Review Room (recommended default in handoff)
-- Content Pipeline
-- DevOps Triage
+### Demo GIF requires live relay — 2026-07-01
+Owner or impl agent must run 2-agent setup (Telegram + Claude + Codex) for A1 recording. Storyboard ready.
 
 ## Completed
+
+### Planning pushed to GitHub — 2026-07-01
+- Branch `cursor/zerorelay-product-prd-a48f`: PRD + planning pack + Gemini CLI bridge merged on single branch.
+
+### PM Sprint 1 kickoff — 2026-07-01
+- Sprint plan, open decisions log, demo GIF storyboard, security P0 impl brief, PM day tracker (`.cursor/day-plan/`).
 
 ### Product planning pack — 2026-06-30
 - Wrote comprehensive PRD, cloud implementation plan, Phase 0 plan, managed stack plan, analytics schema, execution handoff, and this blackboard.

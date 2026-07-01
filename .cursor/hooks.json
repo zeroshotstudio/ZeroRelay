@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/pm-session-start.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/pm-stop-followup.sh",
+        "loop_limit": 8
+      }
+    ]
+  }
+}

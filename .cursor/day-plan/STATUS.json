@@ -1,0 +1,35 @@
+{
+  "date": "2026-07-01",
+  "sessionStartedAt": "2026-07-01T10:15:38Z",
+  "pmModeActive": true,
+  "userPaused": false,
+  "autoFollowup": true,
+  "checkinIntervalMinutes": 20,
+  "currentTask": "T4",
+  "currentTaskStartedAt": "2026-07-01T10:17:10Z",
+  "phase": "morning",
+  "onTrack": true,
+  "pivots": [],
+  "completed": [
+    {
+      "id": "T1",
+      "completedAt": "2026-07-01T10:17:10Z",
+      "notes": "Sprint plan + open decisions + storyboard + security brief"
+    },
+    {
+      "id": "T2",
+      "completedAt": "2026-07-01T10:17:10Z",
+      "notes": "blackboard.md updated"
+    },
+    {
+      "id": "T3",
+      "completedAt": "2026-07-01T10:17:10Z",
+      "notes": "demo-gif-storyboard.md"
+    }
+  ],
+  "blocked": [],
+  "notes": "PM mode initialized.",
+  "lastAgentStopAt": null,
+  "lastCheckinAt": null,
+  "metrics": {}
+}
