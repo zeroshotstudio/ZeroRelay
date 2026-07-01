@@ -12,7 +12,8 @@
 
 | Plan | When | Duration |
 |------|------|----------|
-| [**Sprint 1 (active)**](./zerorelay-sprint-1-plan.md) | **Jul 1–14, 2026** | 2 weeks |
+| [**Sprint 1 (complete)**](./zerorelay-sprint-1-plan.md) | Jul 1–14, 2026 |
+| [Sprint 2](./zerorelay-sprint-2-plan.md) | Cloud C1–C5 kickoff |
 | [Phase 0: Security + GTM](./zerorelay-phase-0-security-gtm-plan.md) | **Start now** | 2–3 weeks |
 | [Cloud MVP](./zerorelay-cloud-implementation-plan.md) | After security gate G0 | 8–10 weeks |
 | [Managed Stack SKU](./zerorelay-managed-stack-plan.md) | After G1 or G3 | 4–6 weeks |
@@ -24,6 +25,8 @@
 | [Open decisions](./open-decisions.md) | Owner sign-off tracker (PM session) |
 | [Demo GIF storyboard](./demo-gif-storyboard.md) | Phase 0 Step A1 shot list |
 | [Security P0 impl brief](./security-p0-impl-brief.md) | Coding agent handoff B1–B4 |
+| [Community seeding (A5)](./community-seeding-drafts.md) | Post-HN r/LocalLLaMA, Discord, X drafts |
+| [Sprint 2 plan](./zerorelay-sprint-2-plan.md) | Cloud MVP C1–C5 kickoff |
 | [Analytics schema](./zerorelay-analytics-schema.md) | Event catalog for Cloud + OSS telemetry |
 | [Show HN draft](./show-hn-draft.md) | Launch post (Phase 0 Step A4) |
 

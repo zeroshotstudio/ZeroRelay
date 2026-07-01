@@ -92,10 +92,9 @@ def check_rate_limit(role: str) -> bool:
     timestamps = rate_limits[role]
     while timestamps and now - timestamps[0] > RATE_LIMIT_WINDOW:
         timestamps.popleft()
-    timestamps.append(now)
-    if len(timestamps) > RATE_LIMIT_MAX:
-        timestamps.pop()
+    if len(timestamps) >= RATE_LIMIT_MAX:
         return True
+    timestamps.append(now)
     return False
 
 
@@ -107,10 +106,9 @@ def check_mcp_rate_limit(role: str) -> bool:
     timestamps = mcp_rate_limits[role]
     while timestamps and now - timestamps[0] > MCP_RATE_LIMIT_WINDOW:
         timestamps.popleft()
-    timestamps.append(now)
-    if len(timestamps) > MCP_RATE_LIMIT_MAX:
-        timestamps.pop()
+    if len(timestamps) >= MCP_RATE_LIMIT_MAX:
         return True
+    timestamps.append(now)
     return False
 
 

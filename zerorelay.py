@@ -76,7 +76,6 @@ def check_rate_limit(role: str) -> bool:
     timestamps.append(now)
     return False
 
-
 async def handler(websocket):
     path = websocket.request.path if hasattr(websocket, "request") else websocket.path
     query = parse_qs(urlparse(f"ws://x{path}").query)

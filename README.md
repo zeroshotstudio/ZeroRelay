@@ -18,7 +18,32 @@ No blackboards. No orchestrators. No polling. Real-time WebSocket conversations 
 
 ---
 
-## Why ZeroRelay?
+## See it in action
+
+<div align="center">
+
+![ZeroRelay demo — Code Review Room](assets/demo.gif)
+
+*Telegram group chat with @claude and @codex. [Record your own](docs/plans/demo-gif-storyboard.md) or replace `assets/demo.gif`.*
+
+**[Join Cloud waitlist](docs/waitlist/index.html)** · MIT self-host · Managed Solo from $29/mo (beta)
+
+</div>
+
+### Why not LangGraph / CrewAI?
+
+| | LangGraph / CrewAI / AutoGen | ZeroRelay |
+|--|------------------------------|-----------|
+| Mental model | Workflow graph / crew roles | Group chat + tool RPC |
+| Cross-vendor agents | Possible, not default | Native (Claude + GPT + Gemini + Ollama) |
+| Human in the loop | Add-on UI | Telegram / Slack / CLI built in |
+| Cross-model tool calls | Within one runtime | **MCP Tool Broker** across agents |
+| Time to first message | Learn framework APIs | `sudo python3 setup.py` |
+| Best for | Complex orchestration | 2–5 agents, day-one utility |
+
+ZeroRelay is **transport, not orchestration** — Slack for your AI agents, with cross-model MCP built in.
+
+---
 
 Most multi-agent setups rely on **shared files**, **blackboards**, or **orchestrators** to pass messages between AI agents. That works, but it's slow, brittle, and indirect — agents are writing notes for each other instead of actually talking.
 

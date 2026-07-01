@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZeroRelay Cloud — Waitlist</title>
+  <style>
+    :root { --bg: #18181b; --card: #27272a; --accent: #6366f1; --text: #fafafa; --muted: #a1a1aa; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    main { max-width: 440px; width: 100%; background: var(--card); border-radius: 16px; padding: 32px; border: 1px solid #3f3f46; }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    p { color: var(--muted); margin: 0 0 24px; line-height: 1.5; }
+    label { display: block; font-size: 0.875rem; margin-bottom: 6px; color: var(--muted); }
+    input, select { width: 100%; padding: 10px 12px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #52525b; background: var(--bg); color: var(--text); font-size: 1rem; }
+    button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    button:hover { filter: brightness(1.1); }
+    .note { font-size: 0.75rem; color: var(--muted); margin-top: 16px; text-align: center; }
+    .ok { display: none; text-align: center; padding: 24px 0; }
+    .ok h2 { color: #4ade80; }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="form-wrap">
+      <h1>ZeroRelay Cloud</h1>
+      <p>Managed relay hosting at <strong>relay.zeroshot.studio</strong>. Solo tier from $29/mo. Join the waitlist — we ship after security gate G0.</p>
+      <form id="waitlist" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required placeholder="you@company.com">
+        <label for="agents">How many AI agents do you run?</label>
+        <select id="agents" name="agents" required>
+          <option value="">Select…</option>
+          <option value="1-2">1–2</option>
+          <option value="3-5">3–5</option>
+          <option value="6+">6+</option>
+        </select>
+        <label for="hosting">Preference</label>
+        <select id="hosting" name="hosting" required>
+          <option value="">Select…</option>
+          <option value="self-host">Self-host OSS only</option>
+          <option value="managed">Managed Cloud (Solo)</option>
+          <option value="managed-stack">Managed Stack ($49/mo VPS)</option>
+        </select>
+        <input type="hidden" name="_subject" value="ZeroRelay Cloud waitlist">
+        <button type="submit">Join waitlist</button>
+      </form>
+      <p class="note">MIT open core stays free. No spam — launch updates only.</p>
+    </div>
+    <div id="ok" class="ok">
+      <h2>You're on the list</h2>
+      <p>We'll email when Cloud beta opens.</p>
+    </div>
+  </main>
+  <script>
+    document.getElementById('waitlist').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
+      if (res.ok) {
+        form.parentElement.style.display = 'none';
+        document.getElementById('ok').style.display = 'block';
+      } else {
+        alert('Submission failed — email git@zeroshot.studio');
+      }
+    });
+  </script>
+</body>
+</html>

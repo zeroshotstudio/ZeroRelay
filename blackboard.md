@@ -8,11 +8,11 @@
 | Field              | Value |
 |--------------------|-------|
 | **Last updated**   | 2026-07-01 |
-| **Current focus**  | **Sprint 1 (Phase 0)** — parallel security P0 (G0) + GTM assets (G1) |
-| **Active branch**  | `pm/phase-0-sprint-1` (PM/planning); next impl: `bugfix/security-p0-auth-token` |
-| **Blocking issues**| Owner sign-off on open decisions (`docs/plans/open-decisions.md`) — PM defaults apply until overridden |
-| **Build status**   | OSS: `python3 -m unittest discover -s tests` expected green; no Cloud code yet |
-| **Gates**          | G0 🔄 (PR ready) · G1 ☐ · G2 ☐ · G3 ☐ · G4 ☐ |
+| **Current focus**  | **Sprint 1 complete** — merge `sprint-1/complete` → post Show HN → G1 |
+| **Active branch**  | `sprint-1/complete` |
+| **Blocking issues**| Owner: set Formspree ID in `docs/waitlist/index.html`; merge PR to pass G0 |
+| **Build status**   | 41/41 tests green (`unittest discover -s tests`) |
+| **Gates**          | G0 🔄 (PR ready) · G1 🔄 (assets ready, post HN) · G2 ☐ · G3 ☐ · G4 ☐ |
 
 ## Planning Artifacts (2026-06-30)
 
@@ -24,18 +24,19 @@
 | `docs/plans/zerorelay-cloud-implementation-plan.md` | Cloud MVP build plan (8–10 weeks) |
 | `docs/plans/zerorelay-managed-stack-plan.md` | ZeroVPS Managed Relay Stack SKU (Phase 2) |
 | `docs/plans/zerorelay-analytics-schema.md` | Event schema for product metrics |
-| `docs/plans/zerorelay-sprint-1-plan.md` | **Sprint 1 task plan** (2 weeks, Jul 1–14) |
-| `docs/plans/open-decisions.md` | Owner sign-off tracker |
-| `docs/plans/demo-gif-storyboard.md` | GTM demo GIF shot list |
-| `docs/plans/security-p0-impl-brief.md` | Coding agent handoff for B1–B4 |
+| `docs/plans/zerorelay-sprint-1-plan.md` | Sprint 1 task plan (complete) |
+| `docs/plans/zerorelay-sprint-2-plan.md` | Sprint 2 Cloud C1–C5 kickoff |
+| `docs/plans/open-decisions.md` | Owner sign-off tracker (all approved) |
+| `docs/plans/community-seeding-drafts.md` | Post-HN community posts (A5) |
 
 ## In Progress
 
 | Track | Task | Branch |
 |-------|------|--------|
-| PM | Sprint 1 planning + day tracker | `pm/phase-0-sprint-1` |
-| B — Security | B1–B4 complete — PR `bugfix/security-p0-auth-token` | `bugfix/security-p0-auth-token` |
-| A — GTM | A1 demo GIF storyboard ready; record pending owner | `docs/gtm-phase-0` (not started) |
+| Merge | PR `sprint-1/complete` → `main` | `sprint-1/complete` |
+| GTM | Show HN post (Tue–Thu 9am ET) | — |
+| GTM | Wire Formspree on waitlist page | `docs/waitlist/` |
+| Cloud | C2 database models (Sprint 2) | `feature/cloud-mvp` (not started) |
 
 ## Active Decisions
 
@@ -45,6 +46,12 @@
 - Golden path: Anthropic or OpenAI + Telegram + VPS self-host OR Cloud Solo.
 - Cloud v1 is relay management + audit — not a native chat replacement.
 
+### Locked decisions — 2026-07-01 (owner approved)
+- Wedge: **Code Review Room**
+- Cloud domain: **relay.zeroshot.studio**
+- Dashboard auth beta: **GitHub OAuth only**
+- Sprint 1: **parallel security + GTM**
+
 ### Cloud stack — 2026-06-30 (recommended in implementation plan)
 - **Control plane API**: Python FastAPI + PostgreSQL + Stripe (same language family as relay).
 - **Dashboard**: Next.js 15 App Router in `cloud/dashboard/` (reuse owner Next.js experience from IdeaVault).
@@ -52,29 +59,32 @@
 - **Auth**: Auth.js v5 or Clerk — decision deferred to Cloud Step 1 spike (see cloud plan).
 
 ### Execution order — 2026-06-30
-1. Phase 0 security P0 (blocks paid launch) — can start immediately on OSS repo.
-2. Phase 0 GTM (demo GIF, HN, waitlist) — parallel, no code dependency.
-3. Cloud MVP — start after P0 security merged OR in parallel if separate `cloud/` tree.
+1. Phase 0 security P0 (blocks paid launch) — **complete, awaiting merge**.
+2. Phase 0 GTM (demo GIF, HN, waitlist) — **assets shipped**.
+3. Cloud MVP — C1 scaffold in `cloud/`; Sprint 2 starts C2.
 4. Managed Stack — after Cloud Solo billing proven OR self-host demand validated.
 
 ## Blockers
 
-### Owner sign-off on product decisions — 2026-07-01
-All open decisions in `docs/plans/open-decisions.md` approved (Code Review Room wedge, `relay.zeroshot.studio`, parallel Sprint 1 tracks).
+### Formspree endpoint — 2026-07-01
+Replace `YOUR_FORM_ID` in `docs/waitlist/index.html` after creating Formspree form.
 
-### Security P0 implementation in progress — 2026-07-01
-Branch `bugfix/security-p0-auth-token`: header-based relay auth (B2), shared `core/relay_auth.py`, security test suite (B4).
-
-### Demo GIF requires live relay — 2026-07-01
-Owner or impl agent must run 2-agent setup (Telegram + Claude + Codex) for A1 recording. Storyboard ready.
+### Demo GIF — 2026-07-01
+`assets/demo.gif` is a generated placeholder (33KB). Replace with real Telegram recording per `demo-gif-storyboard.md` before HN if possible.
 
 ## Completed
 
-### Planning pushed to GitHub — 2026-07-01
-- Branch `cursor/zerorelay-product-prd-a48f`: PRD + planning pack + Gemini CLI bridge merged on single branch.
+### Sprint 1 complete — 2026-07-01
+- B1–B5 security (P0 + P1 quick wins)
+- GTM: demo GIF, README polish, waitlist page, HN approved, community drafts
+- Cloud C1 scaffold (`cloud/api`, docker-compose)
+- Sprint 2 plan
 
-### PM Sprint 1 kickoff — 2026-07-01
-- Sprint plan, open decisions log, demo GIF storyboard, security P0 impl brief, PM day tracker (`.cursor/day-plan/`).
+### Security P0 — 2026-07-01
+- Header auth, test suite, all bridges updated
+
+### Planning pushed to GitHub — 2026-07-01
+- Branches: `cursor/zerorelay-product-prd-a48f`, `pm/phase-0-sprint-1`, `bugfix/security-p0-auth-token`
 
 ### Product planning pack — 2026-06-30
 - Wrote comprehensive PRD, cloud implementation plan, Phase 0 plan, managed stack plan, analytics schema, execution handoff, and this blackboard.

@@ -1,7 +1,8 @@
 # Show HN Draft — ZeroRelay
 
-**Status**: Draft — do not post until demo GIF is in README (Phase 0 Step A1)  
+**Status**: Approved — ready to post after G0 PR merged and demo GIF in README  
 **Target day**: Tuesday–Thursday, 9:00 AM US Eastern  
+**Approved**: 2026-07-01 (owner)
 
 ---
 
@@ -57,7 +58,7 @@ I'd love feedback on:
 3. Self-host only, or would you pay for managed relay?
 
 GitHub: https://github.com/zeroshotstudio/ZeroRelay  
-Cloud waitlist: [TBD link from Step A3]
+Cloud waitlist: https://zeroshotstudio.github.io/ZeroRelay/waitlist/ (or `docs/waitlist/index.html` in repo)
 
 ---
 

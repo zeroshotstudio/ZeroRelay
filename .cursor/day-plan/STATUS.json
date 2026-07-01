@@ -25,11 +25,26 @@
       "id": "T3",
       "completedAt": "2026-07-01T10:17:10Z",
       "notes": "demo-gif-storyboard.md"
+    },
+    {
+      "id": "T4",
+      "completedAt": "2026-07-01T10:17:56Z",
+      "notes": "pushed pm/phase-0-sprint-1 d31b557"
+    },
+    {
+      "id": "T5",
+      "completedAt": "2026-07-01T10:17:56Z",
+      "notes": "security-p0-impl-brief.md"
+    },
+    {
+      "id": "T6",
+      "completedAt": "2026-07-01T10:28:00Z",
+      "notes": "security P0 pushed bugfix/security-p0-auth-token"
     }
   ],
   "blocked": [],
   "notes": "PM mode initialized.",
-  "lastAgentStopAt": null,
+  "lastAgentStopAt": "2026-07-01T10:28:19Z",
   "lastCheckinAt": null,
   "metrics": {}
 }

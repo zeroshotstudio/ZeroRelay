@@ -109,6 +109,17 @@ AI agent responses can exceed Telegram's max message length. The API will reject
 
 Tests: `tests/test_auth_security.py`, `tests/test_rate_limit.py`
 
+### P1 — 2026-07-01 (branch `sprint-1/complete`)
+
+| ID | Issue | Resolution |
+|----|-------|------------|
+| 4 | Telegram HTML escaping incomplete | `html.escape(..., quote=True)` in `telegram-bridge.py` and `bridges/chat/telegram.py` |
+| 5 | No rate limit on `/killswitch`, `/start` | 5s cooldown on service commands |
+| 6 | Rate limit race | Check `len >= MAX` before append in `core/zerorelay.py` and `zerorelay.py` |
+| 7 | Claude recursive retry unbounded | Max 5 retries in `bridges/ai/claude_code.py` |
+| 8 | OpenClaw token in process list | Token via `docker exec -e OPENCLAW_TOKEN` only |
+| 10 | Telegram messages not chunked | Chunk at 4000 chars in both telegram bridges |
+
 ---
 
 ## Missing Test Coverage

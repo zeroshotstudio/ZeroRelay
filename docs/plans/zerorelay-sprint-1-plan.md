@@ -99,12 +99,12 @@
 
 ## Sprint 1 definition of done
 
-- [ ] `bugfix/security-p0-auth-token` merged → G0  
-- [ ] `assets/demo.gif` in README  
-- [ ] Waitlist collecting emails  
-- [ ] Show HN draft approved (post optional if G0 slips to Week 2 Tue)  
-- [ ] `blackboard.md` updated with gate status  
-- [ ] Sprint 2 plan drafted (Cloud C1–C5)
+- [x] `bugfix/security-p0-auth-token` + B5 on `sprint-1/complete` → G0 ready for merge
+- [x] `assets/demo.gif` in README
+- [x] Waitlist page (`docs/waitlist/index.html`) — owner wires Formspree ID
+- [x] Show HN draft approved
+- [x] `blackboard.md` updated with gate status
+- [x] Sprint 2 plan drafted (Cloud C1–C5)
 
 ---
 

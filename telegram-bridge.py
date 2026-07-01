@@ -12,11 +12,13 @@ Config via environment or /opt/zerorelay/telegram.env:
 """
 
 import asyncio
+import html
 import json
 import logging
 import os
 import re
 import subprocess
+import time
 
 import websockets
 
@@ -66,7 +68,7 @@ TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 def html_escape(text: str) -> str:
     """Escape HTML special chars for Telegram."""
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return html.escape(text, quote=True)
 
 
 async def tg_typing():
@@ -78,7 +80,7 @@ async def tg_typing():
         })
 
 
-TG_MAX_LENGTH = 4096
+TG_MAX_LENGTH = 4000  # Telegram limit 4096; leave margin for HTML headers
 
 
 def _chunk_text(text: str, max_len: int = TG_MAX_LENGTH) -> list[str]:
@@ -283,6 +285,8 @@ ZEE_TAG = re.compile(r"@z(?:ee)?\b", re.IGNORECASE)
 
 # Sticky addressing state — shared between relay_to_telegram and telegram_to_relay
 sticky = {"agent": None}  # "claude" | "codex" | "content" | "zee"
+COMMAND_COOLDOWN_SEC = int(os.environ.get("TELEGRAM_COMMAND_COOLDOWN", "5"))
+_last_service_command_at = 0.0
 
 
 async def telegram_to_relay(ws):
@@ -305,6 +309,16 @@ async def telegram_to_relay(ws):
                 log.info(f"From Telegram: ({len(text)} chars)")
 
                 cmd = text.strip().lower()
+
+                if cmd in ("/killswitch", "/start"):
+                    now = time.monotonic()
+                    global _last_service_command_at
+                    if now - _last_service_command_at < COMMAND_COOLDOWN_SEC:
+                        await tg_send(
+                            f"<i>Cooldown active. Try again in {COMMAND_COOLDOWN_SEC}s.</i>"
+                        )
+                        continue
+                    _last_service_command_at = now
 
                 # /killswitch — stop all AI bridges immediately
                 if cmd == "/killswitch":

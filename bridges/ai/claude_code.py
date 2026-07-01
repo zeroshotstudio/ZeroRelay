@@ -70,8 +70,8 @@ class ClaudeCodeBridge(AIBridge):
             if r.returncode != 0 and not r.stdout.strip():
                 stderr = r.stderr.strip() or "Unknown error"
                 # Handle "already in use" by rotating session (max 3 retries)
-                if "already in use" in stderr and _retry < 3:
-                    log.warning(f"Session locked, rotating (attempt {_retry + 1}/3)...")
+                if "already in use" in stderr and _retry < 5:
+                    log.warning(f"Session locked, rotating (attempt {_retry + 1}/5)...")
                     self.session_id = str(uuid.uuid4())
                     self.session_established = False
                     return self._sync_generate(prompt, context, _retry=_retry + 1)
