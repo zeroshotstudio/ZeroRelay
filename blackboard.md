@@ -12,7 +12,7 @@
 | **Active branch**  | `pm/phase-0-sprint-1` (PM/planning); next impl: `bugfix/security-p0-auth-token` |
 | **Blocking issues**| Owner sign-off on open decisions (`docs/plans/open-decisions.md`) — PM defaults apply until overridden |
 | **Build status**   | OSS: `python3 -m unittest discover -s tests` expected green; no Cloud code yet |
-| **Gates**          | G0 ☐ · G1 ☐ · G2 ☐ · G3 ☐ · G4 ☐ |
+| **Gates**          | G0 🔄 (PR ready) · G1 ☐ · G2 ☐ · G3 ☐ · G4 ☐ |
 
 ## Planning Artifacts (2026-06-30)
 
@@ -34,7 +34,7 @@
 | Track | Task | Branch |
 |-------|------|--------|
 | PM | Sprint 1 planning + day tracker | `pm/phase-0-sprint-1` |
-| B — Security | B1–B4 on `bugfix/security-p0-auth-token` | `bugfix/security-p0-auth-token` |
+| B — Security | B1–B4 complete — PR `bugfix/security-p0-auth-token` | `bugfix/security-p0-auth-token` |
 | A — GTM | A1 demo GIF storyboard ready; record pending owner | `docs/gtm-phase-0` (not started) |
 
 ## Active Decisions
