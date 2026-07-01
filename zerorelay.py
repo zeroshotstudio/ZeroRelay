@@ -32,7 +32,7 @@ log = logging.getLogger("zerorelay")
 
 clients: dict[str, websockets.WebSocketServerProtocol] = {}
 history: deque = deque(maxlen=200)
-VALID_ROLES = ("vps_claude", "vps_codex", "content_codex", "zee", "jimmy")
+VALID_ROLES = ("vps_claude", "vps_codex", "content_codex", "zee", "jimmy", "gemini")
 
 # Auth token from environment
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
