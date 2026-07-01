@@ -24,8 +24,8 @@
   <main>
     <div id="form-wrap">
       <h1>ZeroRelay Cloud</h1>
-      <p>Managed relay hosting at <strong>relay.zeroshot.studio</strong>. Solo tier from $29/mo. Join the waitlist — we ship after security gate G0.</p>
-      <form id="waitlist" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+      <p>Managed relay hosting at <strong>relay.zeroshot.studio</strong>. Solo tier from $29/mo. G0 security merged — Cloud beta opening soon.</p>
+      <form id="waitlist">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" required placeholder="you@company.com">
         <label for="agents">How many AI agents do you run?</label>
@@ -53,14 +53,31 @@
     </div>
   </main>
   <script>
+    const FORMSUBMIT_URL = 'https://formsubmit.co/ajax/git@zeroshot.studio';
     document.getElementById('waitlist').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
-      const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
-      if (res.ok) {
-        form.parentElement.style.display = 'none';
-        document.getElementById('ok').style.display = 'block';
-      } else {
+      const payload = {
+        email: form.email.value,
+        agents: form.agents.value,
+        hosting: form.hosting.value,
+        _subject: 'ZeroRelay Cloud waitlist',
+        _captcha: 'false',
+        _template: 'table'
+      };
+      try {
+        const res = await fetch(FORMSUBMIT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          form.parentElement.style.display = 'none';
+          document.getElementById('ok').style.display = 'block';
+        } else {
+          throw new Error('submit failed');
+        }
+      } catch {
         alert('Submission failed — email git@zeroshot.studio');
       }
     });

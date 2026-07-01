@@ -1,8 +1,9 @@
 # Show HN Draft — ZeroRelay
 
-**Status**: Approved — ready to post after G0 PR merged and demo GIF in README  
-**Target day**: Tuesday–Thursday, 9:00 AM US Eastern  
-**Approved**: 2026-07-01 (owner)
+**Status**: Launch-ready — post on Show HN (Tue–Thu 9am US Eastern)  
+**Approved**: 2026-07-01 (owner)  
+**G0 merged**: 2026-07-01 (`main` @ `32c583b`)  
+**Waitlist**: https://zeroshotstudio.github.io/ZeroRelay/waitlist/
 
 ---
 
@@ -20,7 +21,7 @@ ZeroRelay puts your agents in a **shared real-time room**. You @-mention Claude,
 
 The part I'm most excited about: the **MCP Tool Broker**. Agents register tools and call each other's tools as structured JSON — so GPT can invoke `claude/run_tests` without you copy-pasting between chat windows.
 
-**Quick demo:** [GIF link in README]
+**Quick demo:** https://github.com/zeroshotstudio/ZeroRelay#see-it-in-action
 
 **Example session (Telegram):**
 
@@ -58,7 +59,7 @@ I'd love feedback on:
 3. Self-host only, or would you pay for managed relay?
 
 GitHub: https://github.com/zeroshotstudio/ZeroRelay  
-Cloud waitlist: https://zeroshotstudio.github.io/ZeroRelay/waitlist/ (or `docs/waitlist/index.html` in repo)
+Cloud waitlist: https://zeroshotstudio.github.io/ZeroRelay/waitlist/?ref=hn
 
 ---
 
@@ -72,8 +73,8 @@ The production stack I run daily: VPS broker + Claude + Codex + Telegram, all sy
 
 ## Post Checklist
 
-- [ ] Demo GIF live in README
-- [ ] Waitlist link works
-- [ ] `python3 -m unittest discover -s tests` green on tagged release
+- [x] Demo GIF live in README
+- [x] Waitlist link works (GitHub Pages + FormSubmit)
+- [x] `python3 -m unittest discover -s tests` green on main
+- [ ] Submit at https://news.ycombinator.com/submit (requires HN login)
 - [ ] Monitor GitHub issues for 48h after post
-- [ ] Add `?ref=hn` to waitlist URL for attribution

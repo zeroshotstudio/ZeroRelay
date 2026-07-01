@@ -8,11 +8,11 @@
 | Field              | Value |
 |--------------------|-------|
 | **Last updated**   | 2026-07-01 |
-| **Current focus**  | **Sprint 1 complete** — merge `sprint-1/complete` → post Show HN → G1 |
-| **Active branch**  | `sprint-1/complete` |
-| **Blocking issues**| Owner: set Formspree ID in `docs/waitlist/index.html`; merge PR to pass G0 |
+| **Current focus**  | **G1 launch** — post Show HN; waitlist live on GitHub Pages |
+| **Active branch**  | `main` |
+| **Blocking issues**| Confirm FormSubmit activation email at git@zeroshot.studio; post Show HN manually |
 | **Build status**   | 41/41 tests green (`unittest discover -s tests`) |
-| **Gates**          | G0 🔄 (PR ready) · G1 🔄 (assets ready, post HN) · G2 ☐ · G3 ☐ · G4 ☐ |
+| **Gates**          | G0 ✅ · G1 🔄 (HN post pending) · G2 ☐ · G3 ☐ · G4 ☐ |
 
 ## Planning Artifacts (2026-06-30)
 
@@ -66,13 +66,16 @@
 
 ## Blockers
 
-### Formspree endpoint — 2026-07-01
-Replace `YOUR_FORM_ID` in `docs/waitlist/index.html` after creating Formspree form.
+### FormSubmit activation — 2026-07-01
+First waitlist submission triggers activation email to `git@zeroshot.studio` — click link once.
 
-### Demo GIF — 2026-07-01
-`assets/demo.gif` is a generated placeholder (33KB). Replace with real Telegram recording per `demo-gif-storyboard.md` before HN if possible.
+### Show HN post — 2026-07-01
+Copy from `docs/plans/show-hn-draft.md` and submit at https://news.ycombinator.com/submit (Tue–Thu 9am ET).
 
 ## Completed
+
+### G0 merged to main — 2026-07-01
+Sprint 1 fast-forward merge (`32c583b`). Security P0+P1, GTM assets, cloud scaffold on `main`.
 
 ### Sprint 1 complete — 2026-07-01
 - B1–B5 security (P0 + P1 quick wins)

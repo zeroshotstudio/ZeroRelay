@@ -2,22 +2,17 @@
 
 Static page: `docs/waitlist/index.html`
 
-## Host options
+## Live URL (GitHub Pages)
 
-1. **GitHub Pages** — enable Pages from `/docs` on `main`; live at  
-   `https://zeroshotstudio.github.io/ZeroRelay/waitlist/`
+https://zeroshotstudio.github.io/ZeroRelay/waitlist/
 
-2. **relay.zeroshot.studio** — Caddy/nginx static file or reverse proxy to Pages
+Hosted from `/docs` on `main` via GitHub Pages.
 
 ## Form backend
 
-1. Create a free form at [formspree.io](https://formspree.io) → copy form ID
-2. Replace `action` in `index.html`:
-   ```html
-   action="https://formspree.io/f/YOUR_FORM_ID"
-   ```
+Submissions go to **FormSubmit.co** → `git@zeroshot.studio`.
 
-Submissions email `git@zeroshot.studio` (or your Formspree inbox).
+On first submission, FormSubmit sends a one-time activation email to that address — click the link to enable the form.
 
 ## Fields collected
 

@@ -26,7 +26,7 @@ No blackboards. No orchestrators. No polling. Real-time WebSocket conversations 
 
 *Telegram group chat with @claude and @codex. [Record your own](docs/plans/demo-gif-storyboard.md) or replace `assets/demo.gif`.*
 
-**[Join Cloud waitlist](docs/waitlist/index.html)** · MIT self-host · Managed Solo from $29/mo (beta)
+**[Join Cloud waitlist](https://zeroshotstudio.github.io/ZeroRelay/waitlist/)** · MIT self-host · Managed Solo from $29/mo (beta)
 
 </div>
 
