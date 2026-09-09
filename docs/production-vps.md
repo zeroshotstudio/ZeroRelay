@@ -29,7 +29,7 @@ The live production stack consists of these systemd services:
 - `telegram-bridge`
 - `tg-cursor-webhook-adapter` (installed always; started only when `/opt/zerorelay/tg-cursor-adapter.env` exists)
 
-The adapter binds `127.0.0.1:8787`. Public TLS terminates at Funnel/nginx. Runbook: [tg-cursor-webhook-adapter.md](tg-cursor-webhook-adapter.md).
+The adapter binds `127.0.0.1:8787` only. Public TLS is Tailscale Funnel on `vps-zee` (same pattern as Hektor Operator Funnel; keep existing zeroshotstudio Funnel nodeAttrs, do not reopen ZM 3050/3051). Runbook: [tg-cursor-webhook-adapter.md](tg-cursor-webhook-adapter.md).
 
 ## Deployment Command
 

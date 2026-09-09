@@ -7,8 +7,9 @@ Telegram Bot API can POST updates to an HTTPS URL and optionally send
 accepts Telegram on localhost and re-POSTs the same JSON body to Cursor
 with the Bearer key.
 
-Public TLS terminates at Funnel/nginx. This service binds localhost only
-(default ``127.0.0.1:8787``); it is not an internet-facing HTTPS server.
+Public TLS is Tailscale Funnel on vps-zee (same pattern as Hektor Operator
+Funnel). This service binds localhost only (default ``127.0.0.1:8787``);
+it is not an internet-facing HTTPS server.
 
 Config via environment or ``/opt/zerorelay/tg-cursor-adapter.env`` (mode 600):
 
@@ -284,7 +285,7 @@ def main() -> None:
         log.error("%s", exc)
         raise SystemExit(1) from exc
     log.info(
-        "listening on %s:%s (localhost bind; TLS terminates at Funnel/nginx)",
+        "listening on %s:%s (localhost bind; TLS terminates at Tailscale Funnel)",
         config.listen_host,
         config.listen_port,
     )
