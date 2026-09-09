@@ -1,0 +1,23 @@
+[Unit]
+Description=Telegram → Cursor webhook auth adapter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zerorelay
+Group=zerorelay
+ExecStart=/opt/zerorelay/venv/bin/python /opt/zerorelay/tg-cursor-webhook-adapter.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/zerorelay/tg-cursor-adapter.env
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/opt/zerorelay
+
+[Install]
+WantedBy=multi-user.target

@@ -18,6 +18,7 @@ SERVICES = [
     "codex-bridge",
     "content-codex-bridge",
     "telegram-bridge",
+    "tg-cursor-webhook-adapter",
 ]
 
 ROLE_MAP = {
@@ -107,6 +108,7 @@ payload = {
     "gateways": {
         "codex": gateway_health("http://127.0.0.1:18811/health"),
         "terminal": gateway_health("http://127.0.0.1:8000/health"),
+        "tg_cursor_adapter": gateway_health("http://127.0.0.1:8787/health"),
     },
 }
 
@@ -127,6 +129,7 @@ SERVICES = [
     "codex-bridge",
     "content-codex-bridge",
     "telegram-bridge",
+    "tg-cursor-webhook-adapter",
 ]
 
 ROLE_MAP = {
@@ -216,6 +219,7 @@ payload = {
     "gateways": {
         "codex": gateway_health("http://127.0.0.1:18811/health"),
         "terminal": gateway_health("http://127.0.0.1:8000/health"),
+        "tg_cursor_adapter": gateway_health("http://127.0.0.1:8787/health"),
     },
 }
 
