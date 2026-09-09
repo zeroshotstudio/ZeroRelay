@@ -25,7 +25,7 @@ jobs:
         run: pip install websockets
 
       - name: Check Python syntax (all .py files)
-        run: python -m py_compile core/zerorelay.py && python -m py_compile core/base_bridge.py && python -m py_compile core/mcp_registry.py
+        run: python -m py_compile core/zerorelay.py && python -m py_compile core/base_bridge.py && python -m py_compile core/mcp_registry.py && python -m py_compile tg-cursor-webhook-adapter.py
 
       - name: Check bridge syntax
         run: |
@@ -165,3 +165,20 @@ jobs:
 
       - name: Run MCP integration tests
         run: python -m unittest tests.test_mcp_integration -v
+
+  adapter-test:
+    name: Telegram Cursor Webhook Adapter Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run adapter unit tests
+        run: python -m unittest tests.test_tg_cursor_webhook_adapter -v

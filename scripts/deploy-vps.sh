@@ -17,6 +17,7 @@ RUNTIME_FILES=(
   codex-bridge.py
   content-codex-bridge.py
   telegram-bridge.py
+  tg-cursor-webhook-adapter.py
 )
 
 SERVICE_FILES=(
@@ -26,6 +27,7 @@ SERVICE_FILES=(
   codex-bridge.service
   content-codex-bridge.service
   telegram-bridge.service
+  tg-cursor-webhook-adapter.service
 )
 
 SERVICES=(
@@ -76,6 +78,7 @@ runtime_files=(
   codex-bridge.py
   content-codex-bridge.py
   telegram-bridge.py
+  tg-cursor-webhook-adapter.py
 )
 
 service_files=(
@@ -85,6 +88,7 @@ service_files=(
   codex-bridge.service
   content-codex-bridge.service
   telegram-bridge.service
+  tg-cursor-webhook-adapter.service
 )
 
 services=(
@@ -150,6 +154,18 @@ done
 ss -ltn sport = :8765 | grep -q '100.127.106.41:8765'
 curl -fsS http://127.0.0.1:18811/health >/dev/null
 curl -fsS http://127.0.0.1:8000/health >/dev/null
+
+# Preserve tg-cursor-adapter.env (never overwrite). Start the adapter only when
+# that file exists so a first deploy does not crash-loop EnvironmentFile=.
+if [[ -f "$RUNTIME_DIR/tg-cursor-adapter.env" ]]; then
+  chmod 600 "$RUNTIME_DIR/tg-cursor-adapter.env"
+  systemctl restart tg-cursor-webhook-adapter
+  systemctl is-active --quiet tg-cursor-webhook-adapter
+  systemctl show tg-cursor-webhook-adapter --property=ExecStart | grep -q "$VENV_DIR/bin/python"
+  curl -fsS http://127.0.0.1:8787/health >/dev/null
+else
+  printf 'tg-cursor-adapter.env absent; unit installed, not started\n'
+fi
 
 "$VENV_DIR/bin/python" -m pip show websockets httpx >/dev/null
 

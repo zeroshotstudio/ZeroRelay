@@ -269,6 +269,7 @@ Use:
 Deployment notes and rollback details:
 
 - [docs/production-vps.md](docs/production-vps.md)
+- Telegram → Cursor webhook adapter (localhost :8787, TLS at Funnel/nginx): [docs/tg-cursor-webhook-adapter.md](docs/tg-cursor-webhook-adapter.md)
 
 ## Architecture
 
