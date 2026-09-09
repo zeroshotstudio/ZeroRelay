@@ -10,6 +10,7 @@ jobs:
   lint:
     name: Syntax & Import Check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
@@ -41,6 +42,7 @@ jobs:
   relay-test:
     name: Relay Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -58,94 +60,126 @@ jobs:
           sleep 2
 
       - name: Test basic connection
+        timeout-minutes: 1
         run: |
-          python -c "
+          python - <<'PY'
           import asyncio, json, websockets
 
           async def test():
-              async with websockets.connect('ws://127.0.0.1:8765?role=test_client') as ws:
+              async with websockets.connect("ws://127.0.0.1:8765?role=test_client") as ws:
                   raw = await asyncio.wait_for(ws.recv(), timeout=5)
                   data = json.loads(raw)
-                  assert data['type'] == 'connected', f'Expected connected, got {data[\"type\"]}'
-                  assert data['role'] == 'test_client'
-                  print('Connection test: PASS')
+                  assert data["type"] == "connected", f"Expected connected, got {data['type']}"
+                  assert data["role"] == "test_client"
+                  print("Connection test: PASS")
 
           asyncio.run(test())
-          "
+          PY
 
       - name: Test message broadcast
+        timeout-minutes: 1
         run: |
-          python -c "
-          import asyncio, json, websockets
+          python - <<'PY'
+          import asyncio, json, time, websockets
+
+          async def recv_json(ws, timeout=5):
+              raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
+              return json.loads(raw)
+
+          async def recv_until(ws, predicate, timeout=5):
+              deadline = time.monotonic() + timeout
+              last = None
+              while True:
+                  remaining = deadline - time.monotonic()
+                  if remaining <= 0:
+                      raise TimeoutError(f"timed out waiting for message; last={last!r}")
+                  msg = await recv_json(ws, timeout=max(remaining, 0.1))
+                  last = msg
+                  if predicate(msg):
+                      return msg
 
           async def test():
-              async with websockets.connect('ws://127.0.0.1:8765?role=sender') as ws1:
-                  await ws1.recv()  # connected msg
-                  async with websockets.connect('ws://127.0.0.1:8765?role=receiver') as ws2:
-                      await ws2.recv()  # connected msg
-                      await ws2.recv()  # system msg (sender joined)
-                      await ws1.recv()  # system msg (receiver joined)
-                      await ws1.send(json.dumps({'content': 'hello'}))
-                      raw = await asyncio.wait_for(ws2.recv(), timeout=5)
-                      data = json.loads(raw)
-                      assert data['type'] == 'message'
-                      assert data['content'] == 'hello'
-                      assert data['from'] == 'sender'
-                      print('Broadcast test: PASS')
+              # Join notifications are broadcast to *other* clients only. The new
+              # client learns existing peers via connected.peers_online — it never
+              # receives a retroactive "<peer> joined" system frame. Waiting for
+              # that on the receiver deadlocks (no timeout) and hung CI ~25m–6h.
+              async with websockets.connect("ws://127.0.0.1:8765?role=sender") as ws1:
+                  data = await recv_json(ws1)
+                  assert data["type"] == "connected", data
+                  async with websockets.connect("ws://127.0.0.1:8765?role=receiver") as ws2:
+                      data = await recv_json(ws2)
+                      assert data["type"] == "connected", data
+                      assert "sender" in data.get("peers_online", []), data
+                      await recv_until(
+                          ws1,
+                          lambda m: m.get("type") == "system"
+                          and "receiver joined" in m.get("message", ""),
+                      )
+                      await ws1.send(json.dumps({"content": "hello"}))
+                      msg = await recv_until(
+                          ws2,
+                          lambda m: m.get("type") == "message" and m.get("content") == "hello",
+                      )
+                      assert msg["from"] == "sender"
+                      print("Broadcast test: PASS")
 
           asyncio.run(test())
-          "
+          PY
 
       - name: Test token authentication
+        timeout-minutes: 1
         run: |
           RELAY_TOKEN=test-secret python core/zerorelay.py --host 127.0.0.1 --port 8766 &
           sleep 2
-          python -c "
-          import asyncio, websockets
-
-          async def test():
-              # Should reject without token
-              try:
-                  async with websockets.connect('ws://127.0.0.1:8766?role=notoken') as ws:
-                      await ws.recv()
-                      print('FAIL: Should have been rejected')
-                      exit(1)
-              except websockets.exceptions.ConnectionClosed:
-                  print('Token rejection test: PASS')
-
-              # Should accept with correct token
-              async with websockets.connect('ws://127.0.0.1:8766?role=authed&token=test-secret') as ws:
-                  raw = await asyncio.wait_for(ws.recv(), timeout=5)
-                  import json
-                  data = json.loads(raw)
-                  assert data['type'] == 'connected'
-                  print('Token acceptance test: PASS')
-
-          asyncio.run(test())
-          "
-
-      - name: Test role uniqueness
-        run: |
-          python -c "
+          python - <<'PY'
           import asyncio, json, websockets
 
           async def test():
-              async with websockets.connect('ws://127.0.0.1:8765?role=unique_role') as ws1:
-                  await ws1.recv()
-                  try:
-                      async with websockets.connect('ws://127.0.0.1:8765?role=unique_role') as ws2:
-                          await ws2.recv()
-                          print('FAIL: Duplicate role should be rejected')
-                          exit(1)
-                  except websockets.exceptions.ConnectionClosed:
-                      print('Role uniqueness test: PASS')
+              try:
+                  async with websockets.connect("ws://127.0.0.1:8766?role=notoken") as ws:
+                      await asyncio.wait_for(ws.recv(), timeout=5)
+                      print("FAIL: Should have been rejected")
+                      raise SystemExit(1)
+              except websockets.exceptions.ConnectionClosed:
+                  print("Token rejection test: PASS")
+
+              async with websockets.connect(
+                  "ws://127.0.0.1:8766?role=authed&token=test-secret"
+              ) as ws:
+                  raw = await asyncio.wait_for(ws.recv(), timeout=5)
+                  data = json.loads(raw)
+                  assert data["type"] == "connected"
+                  print("Token acceptance test: PASS")
 
           asyncio.run(test())
-          "
+          PY
+
+      - name: Test role uniqueness
+        timeout-minutes: 1
+        run: |
+          python - <<'PY'
+          import asyncio, websockets
+
+          async def test():
+              async with websockets.connect("ws://127.0.0.1:8765?role=unique_role") as ws1:
+                  await asyncio.wait_for(ws1.recv(), timeout=5)
+                  try:
+                      async with websockets.connect(
+                          "ws://127.0.0.1:8765?role=unique_role"
+                      ) as ws2:
+                          await asyncio.wait_for(ws2.recv(), timeout=5)
+                          print("FAIL: Duplicate role should be rejected")
+                          raise SystemExit(1)
+                  except websockets.exceptions.ConnectionClosed:
+                      print("Role uniqueness test: PASS")
+
+          asyncio.run(test())
+          PY
 
   mcp-test:
     name: MCP Tool Broker Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
@@ -169,6 +203,7 @@ jobs:
   adapter-test:
     name: Telegram Cursor Webhook Adapter Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
