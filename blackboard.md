@@ -7,11 +7,11 @@
 
 | Field              | Value |
 |--------------------|-------|
-| **Last updated**   | 2026-07-01 |
-| **Current focus**  | **G1 launch** — post Show HN; waitlist live on GitHub Pages |
+| **Last updated**   | 2026-09-12 |
+| **Current focus**  | **Personal Adapter v1** — local `zr-` keys over AGY/Claude CLIs |
 | **Active branch**  | `main` |
 | **Blocking issues**| Confirm FormSubmit activation email at git@zeroshot.studio; post Show HN manually |
-| **Build status**   | 41/41 tests green (`unittest discover -s tests`) |
+| **Build status**   | 60/60 tests green (`python3 -m unittest discover -s tests`) |
 | **Gates**          | G0 ✅ · G1 🔄 (HN post pending) · G2 ☐ · G3 ☐ · G4 ☐ |
 
 ## Planning Artifacts (2026-06-30)
@@ -19,6 +19,8 @@
 | Document | Purpose |
 |----------|---------|
 | `docs/prd/zerorelay-product-prd.md` | Full product PRD v1.0 |
+| `docs/superpowers/specs/2026-09-12-personal-adapter-design.md` | Personal Adapter sidecar spec |
+| `docs/personal-adapter.md` | Mint/serve how-to |
 | `docs/plans/zerorelay-execution-handoff.md` | **Start here** — read order, tracks, gates |
 | `docs/plans/zerorelay-phase-0-security-gtm-plan.md` | Security P0/P1 + launch validation (2–3 weeks) |
 | `docs/plans/zerorelay-cloud-implementation-plan.md` | Cloud MVP build plan (8–10 weeks) |
@@ -33,7 +35,6 @@
 
 | Track | Task | Branch |
 |-------|------|--------|
-| Merge | PR `sprint-1/complete` → `main` | `sprint-1/complete` |
 | GTM | Show HN post (Tue–Thu 9am ET) | — |
 | GTM | Wire Formspree on waitlist page | `docs/waitlist/` |
 | Cloud | C2 database models (Sprint 2) | `feature/cloud-mvp` (not started) |
@@ -73,6 +74,12 @@ First waitlist submission triggers activation email to `git@zeroshot.studio` —
 Copy from `docs/plans/show-hn-draft.md` and submit at https://news.ycombinator.com/submit (Tue–Thu 9am ET).
 
 ## Completed
+
+### Personal Adapter v1 — 2026-09-12
+- Spec: `docs/superpowers/specs/2026-09-12-personal-adapter-design.md`
+- Gateway providers: AGY (default) + Claude Code CLI
+- How-to: `docs/personal-adapter.md`
+- Sidecar only; does not replace Code Review Room GTM or Cloud Phase 1
 
 ### G0 merged to main — 2026-07-01
 Sprint 1 fast-forward merge (`32c583b`). Security P0+P1, GTM assets, cloud scaffold on `main`.
