@@ -1,6 +1,6 @@
 # ZeroRelay Planning Index
 
-**Last updated**: 2026-07-01
+**Last updated**: 2026-09-12
 
 ## Start here
 
@@ -29,6 +29,8 @@
 | [Sprint 2 plan](./zerorelay-sprint-2-plan.md) | Cloud MVP C1–C5 kickoff |
 | [Analytics schema](./zerorelay-analytics-schema.md) | Event catalog for Cloud + OSS telemetry |
 | [Show HN draft](./show-hn-draft.md) | Launch post (Phase 0 Step A4) |
+| [Personal Adapter spec](../superpowers/specs/2026-09-12-personal-adapter-design.md) | Local `zr-` key sidecar design |
+| [Personal Adapter how-to](../personal-adapter.md) | Mint/serve + LaunchAgent |
 
 ## Legacy ops plans
 

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>studio.zeroshot.zerorelay-openai-gateway</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>/Users/zero/Projects/active/ZeroRelay/services/openai_gateway.py</string>
+    <string>--serve</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/zero/Projects/active/ZeroRelay</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/zero/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>ZERORELAY_HOME</key>
+    <string>/Users/zero/.zerorelay</string>
+    <key>ZERORELAY_ADAPTER_PROVIDER</key>
+    <string>agy</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/zero/Library/Logs/zerorelay/openai-gateway.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zero/Library/Logs/zerorelay/openai-gateway.launchd.err.log</string>
+</dict>
+</plist>

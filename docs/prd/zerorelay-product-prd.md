@@ -949,7 +949,7 @@ From `SECURITY_REVIEW.md`:
 
 ## 19. Out of Scope (v1)
 
-- Built-in LLM inference (users bring API keys)
+- Built-in LLM inference (users bring API keys). **Exception:** the local Personal Adapter sidecar mints loopback `zr-` keys over the user's own CLI sessions — see [Appendix C](#appendix-c--personal-adapter-sidecar). It is not Cloud-hosted inference.
 - Visual workflow editor / node canvas
 - Replacing Telegram/Slack with native chat app
 - Mobile native apps
@@ -1007,6 +1007,23 @@ From `SECURITY_REVIEW.md`:
 | Analytics schema | `docs/plans/zerorelay-analytics-schema.md` |
 | Show HN draft | `docs/plans/show-hn-draft.md` |
 | Session state | `blackboard.md` |
+| Personal Adapter spec | `docs/superpowers/specs/2026-09-12-personal-adapter-design.md` |
+| Personal Adapter how-to | `docs/personal-adapter.md` |
+
+---
+
+## Appendix C — Personal Adapter sidecar
+
+**Status:** Experimental sidecar (2026-09-12). Not Cloud Phase 1. Not a GTM pivot off Code Review Room.
+
+ZeroRelay can mint a local OpenAI-compatible API key (`zr-…`) bound to `127.0.0.1` that forwards `POST /v1/chat/completions` to an official CLI the operator is already logged into (v1: AGY, Claude Code). This lets tools that only accept `base_url` + key spend **the operator's own subscription usage**.
+
+Rules:
+
+- Loopback only. One human, their own sessions. No multi-tenant key sharing.
+- Official CLIs only. Legal review before any hosted/Cloud SKU.
+- Do not market as billing bypass.
+- Implementation: `services/openai_gateway.py`, `services/providers.py`. How-to: `docs/personal-adapter.md`.
 
 ---
 
