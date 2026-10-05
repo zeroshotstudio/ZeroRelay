@@ -21,6 +21,44 @@ from core.relay_auth import relay_headers, relay_uri
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("telegram-bridge")
 
+# --- Log redaction: never write Bot API tokens / relay tokens to logs ---
+import sys as _sys
+
+_REDACT_PATTERNS = [
+    (re.compile(r"(/bot)\d{5,}:[A-Za-z0-9_-]{20,}"), r"\1***"),       # https://api.telegram.org/bot<token>/...
+    (re.compile(r"\b\d{6,}:[A-Za-z0-9_-]{30,}\b"), "***"),              # bare bot token
+    (re.compile(r"([?&](?:token|secret|key)=)[^&\s\"']+"), r"\1***"),  # ?token=... query params
+]
+
+
+def redact(text: str) -> str:
+    for pat, repl in _REDACT_PATTERNS:
+        text = pat.sub(repl, text)
+    return text
+
+
+class _RedactingFormatter(logging.Formatter):
+    def format(self, record):
+        return redact(super().format(record))
+
+
+for _h in logging.getLogger().handlers:
+    _h.setFormatter(_RedactingFormatter(_h.formatter._fmt if _h.formatter else None))
+
+# httpx logs every request at INFO including the full URL (= the bot token). Silence it.
+for _name in ("httpx", "httpcore", "urllib3", "requests", "websockets", "asyncio"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
+
+def _log_unhandled(exc_type, exc, tb):
+    # route uncaught tracebacks through the redacting formatter instead of raw stderr
+    logging.getLogger().critical("Unhandled exception", exc_info=(exc_type, exc, tb))
+
+
+_sys.excepthook = _log_unhandled
+# --- end log redaction ---
+
+
 ENV_FILE = os.environ.get("TELEGRAM_ENV_FILE", "./.env")
 if os.path.exists(ENV_FILE):
     with open(ENV_FILE) as f:
