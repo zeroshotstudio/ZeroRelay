@@ -20,6 +20,8 @@
     <string>/Users/zero/.zerorelay</string>
     <key>ZERORELAY_ADAPTER_PROVIDER</key>
     <string>agy</string>
+    <key>ZERORELAY_AGY_MODEL</key>
+    <string>gemini-3.8-flash-high</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
