@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SERVICES = REPO_ROOT / "services"
@@ -84,6 +85,7 @@ class AgyProviderTest(unittest.TestCase):
                 "ZERORELAY_HOME",
                 "ZERORELAY_AGY_BIN",
                 "ZERORELAY_AGY_CWD",
+                "ZERORELAY_AGY_MODEL",
                 "ZERORELAY_AGY_TIMEOUT",
                 "ZERORELAY_SYSTEM_PREAMBLE",
             )
@@ -92,6 +94,7 @@ class AgyProviderTest(unittest.TestCase):
         os.environ["ZERORELAY_AGY_BIN"] = str(self.binary)
         os.environ["ZERORELAY_AGY_CWD"] = str(self.home / "sandbox")
         os.environ["ZERORELAY_AGY_TIMEOUT"] = "5"
+        os.environ.pop("ZERORELAY_AGY_MODEL", None)
         os.environ.pop("ZERORELAY_SYSTEM_PREAMBLE", None)
 
     def tearDown(self) -> None:
@@ -117,6 +120,27 @@ class AgyProviderTest(unittest.TestCase):
         )
         self.assertIn("Diagnose lock file", content)
         self.assertNotIn("Operator OS worker brain", content)
+
+    def test_agy_alias_passes_configured_model_to_cli(self) -> None:
+        os.environ["ZERORELAY_AGY_MODEL"] = "gemini-3.8-flash-high"
+        with patch("providers.subprocess.run") as run:
+            run.return_value.stdout = "ok"
+            run.return_value.returncode = 0
+            AgyProvider().generate([{"role": "user", "content": "Check"}], "agy")
+        args = run.call_args.args[0]
+        self.assertIn("--model", args)
+        self.assertEqual(args[args.index("--model") + 1], "gemini-3.8-flash-high")
+
+    def test_explicit_gemini_model_passes_through_to_cli(self) -> None:
+        with patch("providers.subprocess.run") as run:
+            run.return_value.stdout = "ok"
+            run.return_value.returncode = 0
+            AgyProvider().generate(
+                [{"role": "user", "content": "Check"}], "gemini-3.8-flash-high"
+            )
+        args = run.call_args.args[0]
+        self.assertIn("--model", args)
+        self.assertEqual(args[args.index("--model") + 1], "gemini-3.8-flash-high")
 
 
 def _fake_claude(home: Path, *, fail_first: bool = False) -> Path:

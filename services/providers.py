@@ -60,10 +60,11 @@ class AgyProvider:
 
     def generate(self, messages: list[dict[str, Any]], model: str) -> str:
         prompt = messages_to_prompt(messages, preamble=agy_preamble())
-        return call_agy(prompt)
+        selected_model = model if model.startswith("gemini-") else os.environ.get("ZERORELAY_AGY_MODEL", "")
+        return call_agy(prompt, model=selected_model)
 
 
-def call_agy(prompt: str) -> str:
+def call_agy(prompt: str, *, model: str = "") -> str:
     binary = os.environ.get("ZERORELAY_AGY_BIN") or "agy"
     cwd = os.environ.get("ZERORELAY_AGY_CWD") or str(config_dir() / "agy-brain-sandbox")
     Path(cwd).mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -76,9 +77,10 @@ def call_agy(prompt: str) -> str:
         "text",
         "--print-timeout",
         f"{timeout}s",
-        "-p",
-        prompt,
     ]
+    if model:
+        cmd.extend(["--model", model])
+    cmd.extend(["-p", prompt])
     result = subprocess.run(
         cmd,
         capture_output=True,
